@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
     const [maskedData, setMaskedData] = useState(null);
@@ -44,6 +45,7 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
         const colors = {
             'USER': '#3b82f6',
             'PERSON': '#3b82f6',
+            'COLLEGE': '#0ea5e9',
             'EMAIL': '#8b5cf6',
             'PHONE': '#10b981',
             'LOCATION': '#f59e0b',
@@ -61,6 +63,7 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
         const emojis = {
             'USER': '👤',
             'PERSON': '👤',
+            'COLLEGE': '🎓',
             'EMAIL': '📧',
             'PHONE': '📱',
             'LOCATION': '📍',
@@ -111,7 +114,7 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                     </div>
                     <div>
                         <div className="mv-header-title">Masked Prompt Viewer</div>
-                        <div className="mv-header-sub">Message-level transparency</div>
+                        <div className="mv-header-sub">See exactly what the AI saw vs what you see</div>
                     </div>
                 </div>
                 <button className="mv-close" onClick={onClose} title="Close viewer">
@@ -136,20 +139,22 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                 {isLoading ? (
                     <div className="mv-loading">
                         <div className="mv-loading-ring"></div>
-                        <p>Loading masked details…</p>
+                        <p>Loading transparency data…</p>
                     </div>
                 ) : error ? (
                     <div className="mv-error">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                         <p>{error}</p>
-                        <button className="mv-retry-btn" onClick={loadMaskedData}>Retry</button>
+                        <button className="mv-retry-btn" onClick={loadMaskedData}>Try again</button>
                     </div>
                 ) : maskedData ? (
                     <>
                         {/* ── DATA FLOW TAB ── */}
                         {activeSection === 'flow' && (
                             <div className="mv-flow" key="flow">
-                                {/* Step 1: Your Original */}
+                                <p className="mv-flow-intro">How your message and the AI reply are handled — from your words to placeholders and back.</p>
+
+                                {/* Step 1: Your message as you typed it */}
                                 <div className="mv-step">
                                     <div className="mv-step-badge">
                                         <span className="mv-step-num">1</span>
@@ -158,15 +163,15 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                                     <div className="mv-step-card">
                                         <div className="mv-step-label">
                                             <span className="mv-step-emoji">📥</span>
-                                            Your Original Message
+                                            Your message (as you typed it)
                                         </div>
                                         <div className="mv-step-content original">
-                                            {maskedData.original_message}
+                                            {maskedData.original_message || '—'}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Step 2: PII Detection */}
+                                {/* Step 2: PII detected and tokenized */}
                                 {maskedData.tokens && maskedData.tokens.length > 0 && (
                                     <div className="mv-step">
                                         <div className="mv-step-badge">
@@ -176,7 +181,7 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                                         <div className="mv-step-card">
                                             <div className="mv-step-label">
                                                 <span className="mv-step-emoji">🔍</span>
-                                                PII Detected &amp; Masked
+                                                Detected PII → tokens (labels)
                                             </div>
                                             <div className="mv-detections">
                                                 {maskedData.tokens.map((t, i) => (
@@ -193,7 +198,7 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                                     </div>
                                 )}
 
-                                {/* Step 3: Masked Prompt */}
+                                {/* Step 3: What the AI received (your prompt masked) */}
                                 <div className="mv-step">
                                     <div className="mv-step-badge">
                                         <span className="mv-step-num">{maskedData.tokens?.length > 0 ? '3' : '2'}</span>
@@ -202,43 +207,36 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                                     <div className="mv-step-card">
                                         <div className="mv-step-label">
                                             <span className="mv-step-emoji">🎭</span>
-                                            What AI Received (Masked)
+                                            What the AI received (your prompt — masked)
                                         </div>
                                         <div className="mv-step-content masked">
-                                            {highlightTokens(maskedData.masked_message, maskedData.tokens)}
+                                            {highlightTokens(maskedData.masked_message || '—', maskedData.tokens)}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Step 4: AI Response Masked */}
-                                <div className="mv-step">
-                                    <div className="mv-step-badge">
-                                        <span className="mv-step-num">{maskedData.tokens?.length > 0 ? '4' : '3'}</span>
-                                        <span className="mv-step-line"></span>
+                                {/* AI Response block: masked + unmasked */}
+                                <div className="mv-ai-response-block">
+                                    <div className="mv-ai-response-heading">
+                                        <span className="mv-step-emoji">🤖</span>
+                                        AI response
                                     </div>
-                                    <div className="mv-step-card">
-                                        <div className="mv-step-label">
-                                            <span className="mv-step-emoji">🤖</span>
-                                            AI Response (Masked)
-                                        </div>
+
+                                    <div className="mv-ai-response-row masked">
+                                        <div className="mv-ai-response-sublabel">Stored / what the model produced (placeholders only)</div>
                                         <div className="mv-step-content ai-masked">
-                                            {highlightTokens(maskedData.ai_masked_response, maskedData.tokens)}
+                                            {highlightTokens(maskedData.ai_masked_response || '—', maskedData.tokens)}
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Step 5: Final Unmasked */}
-                                <div className="mv-step last">
-                                    <div className="mv-step-badge">
-                                        <span className="mv-step-num">{maskedData.tokens?.length > 0 ? '5' : '4'}</span>
-                                    </div>
-                                    <div className="mv-step-card">
-                                        <div className="mv-step-label">
-                                            <span className="mv-step-emoji">📤</span>
-                                            What You See (Unmasked)
-                                        </div>
-                                        <div className="mv-step-content unmasked">
-                                            {maskedData.ai_unmasked_response}
+                                    <div className="mv-ai-response-row unmasked">
+                                        <div className="mv-ai-response-sublabel">What you see (unmasked in backend, then shown here)</div>
+                                        <div className="mv-step-content unmasked mv-response-final">
+                                            {maskedData.ai_unmasked_response && maskedData.ai_unmasked_response.trim() ? (
+                                                <MarkdownRenderer content={maskedData.ai_unmasked_response} fallback={maskedData.ai_unmasked_response} />
+                                            ) : (
+                                                '—'
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -250,9 +248,10 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                             <div className="mv-tokens-panel" key="tokens">
                                 {maskedData.tokens && maskedData.tokens.length > 0 ? (
                                     <>
+                                        <p className="mv-tokens-intro">All PII detected in this exchange, with token label and original value (visible only to you).</p>
                                         <div className="mv-tokens-header-row">
                                             <span>Token</span>
-                                            <span>Original Value</span>
+                                            <span>Original value</span>
                                             <span>Type</span>
                                         </div>
                                         {maskedData.tokens.map((t, i) => (
@@ -291,7 +290,7 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
                                         </svg>
                                         <p>No PII detected in this message</p>
-                                        <span>The message was sent without masking</span>
+                                        <span>Nothing was masked; the message was sent as-is to the model.</span>
                                     </div>
                                 )}
                             </div>
@@ -303,7 +302,8 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                             <circle cx="12" cy="12" r="3"></circle>
                         </svg>
-                        <p>Select a message to view details</p>
+                        <p>Select a message to view masked details</p>
+                        <span>Click “View Masked Prompt” on an AI reply to see the data flow.</span>
                     </div>
                 )}
             </div>
@@ -318,12 +318,12 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
                     <div className="mv-footer-divider"></div>
                     <div className="mv-footer-item">
                         <span>⏱️</span>
-                        TTL {formatTime(maskedData.ttl_remaining)}
+                        Session TTL {formatTime(maskedData.ttl_remaining)}
                     </div>
                     <div className="mv-footer-divider"></div>
                     <div className="mv-footer-item accent">
                         <span>✓</span>
-                        Zero-Knowledge
+                        AI never saw your PII
                     </div>
                 </div>
             )}

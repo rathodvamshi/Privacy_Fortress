@@ -7,11 +7,11 @@ from datetime import datetime
 
 
 class TokenInfo(BaseModel):
-    """Token information for masked prompt viewer"""
-    token: str
-    type: str
-    display: str  # Masked display like "●●●●●"
-    original_value: Optional[str] = None  # Actual value (shown to data owner only)
+    """Single detected PII token for masked prompt viewer — label and (optional) value for data owner."""
+    token: str  # e.g. [NAME_1], [COLLEGE_1]
+    type: str   # Entity label: USER, COLLEGE, EMAIL, etc.
+    display: str  # Masked display e.g. "●●●●●"
+    original_value: Optional[str] = None  # Actual value (shown only to data owner)
 
 
 class EntityInfo(BaseModel):
@@ -50,14 +50,35 @@ class ChatResponse(BaseModel):
 
 
 class MaskedPromptResponse(BaseModel):
-    """Response showing masked prompt details"""
-    original_message: str
-    masked_message: str
-    tokens: List[TokenInfo]
-    ai_masked_response: str
-    ai_unmasked_response: str
-    encryption_status: Dict[str, Any]
-    ttl_remaining: int
+    """Message-level transparency for the Masked Prompt Viewer: user prompt (original + masked), detected tokens with labels, and AI response (masked + unmasked)."""
+    original_message: str = Field(
+        ...,
+        description="Full user input exactly as they typed it (unmasked, before any PII replacement).",
+    )
+    masked_message: str = Field(
+        ...,
+        description="Full user input as sent to the AI (PII replaced by placeholders e.g. [NAME_1], [COLLEGE_1]).",
+    )
+    tokens: List[TokenInfo] = Field(
+        default_factory=list,
+        description="All PII tokens detected in this exchange: token id, entity type, and original value (for data owner).",
+    )
+    ai_masked_response: str = Field(
+        ...,
+        description="AI reply as stored and as the model produced it (placeholders only; zero PII).",
+    )
+    ai_unmasked_response: str = Field(
+        ...,
+        description="AI reply as shown to the user (placeholders resolved to real values in backend RAM only).",
+    )
+    encryption_status: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Encryption algorithm and vault status (e.g. AES-256-GCM).",
+    )
+    ttl_remaining: int = Field(
+        ...,
+        description="Seconds until ephemeral session vault expires.",
+    )
 
 
 class SessionResponse(BaseModel):

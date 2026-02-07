@@ -162,6 +162,10 @@ export const api = {
     return handleResponse(response);
   },
 
+  /**
+   * Get masked prompt transparency data for the Masked Prompt Viewer.
+   * Returns: original_message, masked_message, tokens[], ai_masked_response, ai_unmasked_response, encryption_status, ttl_remaining.
+   */
   async getMaskedPrompt(sessionId, messageId) {
     const cacheKey = `masked:${sessionId}:${messageId}`;
     const cached = cacheGet(cacheKey);
@@ -172,7 +176,7 @@ export const api = {
       { headers: authHeaders() }
     );
     const data = await handleResponse(response);
-    cacheSet(cacheKey, data, 120_000); // 2min cache (masked data rarely changes)
+    cacheSet(cacheKey, data, 120_000); // 2min cache
     return data;
   },
 

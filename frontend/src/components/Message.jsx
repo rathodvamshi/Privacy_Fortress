@@ -97,7 +97,7 @@ export function Message({ message, onViewMasked }) {
                             <button
                                 className="toolbar-btn masked-btn"
                                 onClick={() => onViewMasked(message)}
-                                title="View what the AI actually saw"
+                                title="See the data flow: what the AI saw (masked) vs what you see (unmasked)"
                             >
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>

@@ -28,6 +28,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat"])
 
 
+def _extract_unmasked_text(result) -> str:
+    """Extract unmasked text string from UnmaskingResult; never pass the object to Pydantic."""
+    if result is None:
+        return ""
+    text = getattr(result, "unmasked_text", None)
+    if isinstance(text, str):
+        return text
+    return str(text) if text is not None else ""
+
+
 # CORS preflight handler
 @router.options("/chat")
 async def chat_options():
@@ -284,9 +294,10 @@ async def get_masked_prompt(
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Get masked prompt details for a message.
-    Uses two lockers: ephemeral first; if empty, recreate from persistent profile.
-    Returns the full masking information for transparency (token values hidden for security).
+    Masked Prompt Viewer: message-level transparency for one exchange.
+    Returns the full user prompt (original + masked), all detected PII tokens with labels and values,
+    and the AI response (masked as stored / unmasked as shown to the user).
+    Works whether you pass the user message id or the assistant message id.
     """
     try:
         user_id = current_user["user_id"]
@@ -318,28 +329,32 @@ async def get_masked_prompt(
         # Get the user message (previous message)
         messages = await db.get_session_messages(session_id, limit=100)
         
-        # Find user message and assistant response pair
+        # Find user message and assistant response pair (works for both user and assistant message_id)
         user_msg = None
         assistant_msg = None
-        
         for i, msg in enumerate(messages):
             if msg["_id"] == message_id:
-                assistant_msg = msg
-                if i > 0 and messages[i-1]["role"] == "user":
-                    user_msg = messages[i-1]
+                if msg["role"] == "assistant":
+                    assistant_msg = msg
+                    if i > 0 and messages[i - 1]["role"] == "user":
+                        user_msg = messages[i - 1]
+                else:
+                    user_msg = msg
+                    if i + 1 < len(messages) and messages[i + 1]["role"] == "assistant":
+                        assistant_msg = messages[i + 1]
                 break
-        
-        # Build token info filtered to THIS message's tokens
-        msg_tokens_used = []
+
+        # Collect all token names used in this pair (user + assistant) for full transparency
+        msg_tokens_used = set()
         if user_msg:
-            msg_tokens_used = user_msg.get("tokens_used", [])
-        elif assistant_msg:
-            msg_tokens_used = assistant_msg.get("tokens_used", [])
-        
-        # Get actual mappings from vault for per-message tokens
+            msg_tokens_used.update(user_msg.get("tokens_used") or [])
+        if assistant_msg:
+            msg_tokens_used.update(assistant_msg.get("tokens_used") or [])
+
+        # Build token info with labels and data (token, type, display, original_value)
         all_mappings = pipeline.export_session_mappings()
         tokens = []
-        for token_name in msg_tokens_used:
+        for token_name in sorted(msg_tokens_used):
             mapping = all_mappings.get(token_name, {})
             original = mapping.get("original", "")
             entity_type = mapping.get("entity_type", "UNKNOWN")
@@ -347,33 +362,35 @@ async def get_masked_prompt(
                 token=token_name,
                 type=entity_type,
                 display="●" * min(len(original), 10) if original else "●●●●●",
-                original_value=original if original else None
+                original_value=original if original else None,
             ))
-        
-        # Get vault info
+
         vault_info = vault.get_vault_info()
         ttl = vault.get_ttl(session_id)
-        
-        # Unmask for display — extract .unmasked_text string explicitly
-        unmasked_response = ""
-        if assistant_msg:
-            _res = pipeline.unmask(assistant_msg["masked_content"])
-            unmasked_response = str(_res.unmasked_text) if _res else ""
-        
-        # Unmask user message to show original input
-        user_unmasked = "N/A"
+
+        # Full user input: original (unmasked) and masked
+        user_message_original = "N/A"
+        user_message_masked = "N/A"
         if user_msg:
-            _ures = pipeline.unmask(user_msg["masked_content"])
-            user_unmasked = str(_ures.unmasked_text) if _ures else "N/A"
-        
+            user_message_masked = user_msg.get("masked_content") or "N/A"
+            _ures = pipeline.unmask(user_message_masked)
+            user_message_original = _extract_unmasked_text(_ures) if _ures else "N/A"
+
+        # AI response: masked (what AI saw/sent) and unmasked (what user sees) — always string
+        ai_masked = assistant_msg.get("masked_content", "") if assistant_msg else ""
+        ai_unmasked_str = ""
+        if assistant_msg and ai_masked:
+            _res = pipeline.unmask(ai_masked)
+            ai_unmasked_str = _extract_unmasked_text(_res) if _res else ""
+
         return MaskedPromptResponse(
-            original_message=user_unmasked,
-            masked_message=user_msg["masked_content"] if user_msg else "N/A",
+            original_message=user_message_original,
+            masked_message=user_message_masked,
             tokens=tokens,
-            ai_masked_response=assistant_msg["masked_content"] if assistant_msg else "",
-            ai_unmasked_response=unmasked_response,
+            ai_masked_response=ai_masked,
+            ai_unmasked_response=ai_unmasked_str,
             encryption_status=vault_info["encryption"],
-            ttl_remaining=max(ttl, 0)
+            ttl_remaining=max(ttl, 0),
         )
         
     except HTTPException:
