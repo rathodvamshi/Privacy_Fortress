@@ -11,9 +11,9 @@ echo "[1/4] Installing Python dependencies..."
 pip install --upgrade pip setuptools wheel --quiet
 pip install -r requirements.txt --no-cache-dir --quiet
 
-# 2. Download spaCy model (uses cache if available)
+# 2. Download spaCy model — use direct pip install (most reliable on Render)
 echo "[2/4] Downloading spaCy NER model..."
-python -m spacy download en_core_web_sm --quiet 2>/dev/null || python -m spacy download en_core_web_sm
+pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl --quiet
 
 # 3. Preload & warm models so first request is instant
 echo "[3/4] Preloading models for fast cold start..."
