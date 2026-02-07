@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/jpeg" href="/logo.jpg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Fortress - Zero-Knowledge AI Chat</title>
+    <meta name="description" content="Privacy-first AI chat with automatic PII masking, AES-256 encryption, and zero-knowledge architecture." />
+
+    <!-- Preconnect to critical origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- DNS prefetch for API server (production) -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+    <!-- Fonts — loaded async to avoid render blocking -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+
+    <!-- Inline critical CSS for instant first paint -->
+    <style>
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      html{-webkit-text-size-adjust:100%;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif}
+      body{background:#212121;color:#ececec;min-height:100vh;overflow:hidden}
+      #root{min-height:100vh}
+      .auth-loading{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#212121}
+      .auth-loading-inner{text-align:center;color:#ececec}
+      .loading-spinner{width:32px;height:32px;border:3px solid rgba(255,255,255,.1);border-top-color:#10a37f;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto 12px}
+      @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

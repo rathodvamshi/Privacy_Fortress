@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Fortress — Hackathon Presentation</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #f1f5f9; overflow: hidden; }
+    .slide { display: none; width: 100vw; height: 100vh; padding: 3rem 4rem; flex-direction: column; justify-content: center; }
+    .slide.active { display: flex; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .slide h1 { font-size: 2.2rem; margin: 0 0 1.5rem; color: #38bdf8; font-weight: 700; }
+    .slide h2 { font-size: 1.5rem; margin: 0 0 1rem; color: #e2e8f0; font-weight: 600; }
+    .slide ul { margin: 0; padding-left: 1.8rem; line-height: 1.7; font-size: 1.15rem; color: #cbd5e1; }
+    .slide li { margin-bottom: 0.5rem; }
+    .slide .one-line { font-size: 1.4rem; text-align: center; margin: 2rem 0; padding: 1.5rem; background: rgba(56,189,248,0.12); border-left: 4px solid #38bdf8; border-radius: 8px; font-style: italic; color: #e2e8f0; }
+    .slide .subtitle { font-size: 1.2rem; color: #94a3b8; margin-top: 0.5rem; }
+    .slide .two-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem; }
+    .slide .box { background: rgba(30,41,59,0.8); padding: 1.5rem; border-radius: 12px; border: 1px solid #334155; }
+    .slide .box h3 { margin: 0 0 0.8rem; font-size: 1.2rem; color: #38bdf8; }
+    .slide .box ul { padding-left: 1.2rem; font-size: 1rem; }
+    .slide .flow { display: flex; align-items: center; justify-content: center; gap: 0.8rem; flex-wrap: wrap; margin: 1.5rem 0; font-size: 1rem; color: #94a3b8; }
+    .slide .flow span { padding: 0.5rem 1rem; background: #1e293b; border-radius: 8px; }
+    .slide .flow .arrow { color: #38bdf8; }
+    .slide .title-slide h1 { font-size: 2.8rem; text-align: center; margin-bottom: 0.5rem; }
+    .slide .title-slide .subtitle { text-align: center; font-size: 1.3rem; }
+    .slide .thank-you { text-align: center; }
+    .slide .thank-you .one-line { text-align: center; }
+    nav { position: fixed; bottom: 1rem; right: 1rem; display: flex; gap: 0.5rem; z-index: 10; }
+    nav button { background: #334155; color: #f1f5f9; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    nav button:hover { background: #475569; }
+    .slide-num { position: fixed; bottom: 1rem; left: 1rem; color: #64748b; font-size: 0.9rem; z-index: 10; }
+  </style>
+</head>
+<body>
+  <div class="slide title-slide active" data-n="1">
+    <h1>Privacy Fortress</h1>
+    <p class="subtitle">Zero-Knowledge AI Chat — Your Identity Stays Yours</p>
+  </div>
+
+  <div class="slide" data-n="2">
+    <h1>The Real-World Problem</h1>
+    <h2>Why does this matter?</h2>
+    <ul>
+      <li><strong>Healthcare:</strong> Patient names in prompts can leak into LLM logs and training.</li>
+      <li><strong>Education:</strong> Student PII (name, college, roll numbers) sent to third-party AI.</li>
+      <li><strong>Banking & HR:</strong> Sensitive data in chat history = compliance risk.</li>
+      <li><strong>One breach = identity exposed</strong> — once PII hits the model, you can't "undo" it.</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="3">
+    <h1>What Makes Us Different</h1>
+    <ul>
+      <li><strong>Zero-knowledge AI:</strong> LLM never sees "Alice" or "KMIT" — only placeholders like [NAME_1], [COLLEGE_1].</li>
+      <li><strong>Two-locker model:</strong> Ephemeral session vault (wiped when you leave) + one encrypted profile per user (with consent).</li>
+      <li><strong>Recreate, don't restore:</strong> We store one encrypted profile and recreate context when you return.</li>
+      <li><strong>AES-256-GCM:</strong> All persistent PII encrypted before DB; decryption only in RAM at display time.</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="4">
+    <h1>One Line for the Jury</h1>
+    <p class="one-line">"We use AES-256 to encrypt user identity, keep it outside the AI, and only resolve it at display time."</p>
+  </div>
+
+  <div class="slide" data-n="5">
+    <h1>Team & Roles</h1>
+    <ul>
+      <li><strong>[Name]</strong> — Architecture & backend: two-locker design, vault APIs, encryption.</li>
+      <li><strong>[Name]</strong> — PII detection & masking: NER (spaCy), regex, fuzzy matching.</li>
+      <li><strong>[Name]</strong> — Frontend & UX: chat UI, consent flows, "Forget me".</li>
+      <li><strong>[Name]</strong> — Integration & security: Auth (JWT), rate limiting, audit (no PII).</li>
+      <li><strong>Together:</strong> Problem framing, API design, "AI never sees PII" end-to-end.</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="6">
+    <h1>System Flow</h1>
+    <p class="flow">
+      <span>User</span><span class="arrow">→</span><span>Mask</span><span class="arrow">→</span><span>Ephemeral vault</span><span class="arrow">→</span><span>AI (placeholders only)</span><span class="arrow">→</span><span>Unmask in RAM</span><span class="arrow">→</span><span>User sees real text</span>
+    </p>
+    <ul>
+      <li>DB stores only <strong>masked</strong> messages.</li>
+      <li>One <strong>encrypted profile</strong> per user (Locker 2) with consent.</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="7">
+    <h1>Tech Stack & Decisions</h1>
+    <ul>
+      <li><strong>Backend:</strong> FastAPI — async, OpenAPI docs.</li>
+      <li><strong>Detection:</strong> spaCy NER + regex + RapidFuzz.</li>
+      <li><strong>Ephemeral vault:</strong> Redis + TTL (e.g. 30 min).</li>
+      <li><strong>Persistent vault:</strong> MongoDB, AES-256-GCM, one doc per user.</li>
+      <li><strong>LLM:</strong> Groq (masked input only; model swappable).</li>
+      <li><strong>Auth:</strong> JWT (access + refresh).</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="8">
+    <h1>Two-Locker Architecture</h1>
+    <div class="two-boxes">
+      <div class="box">
+        <h3>Locker 1 — Ephemeral</h3>
+        <ul>
+          <li>Per session, Redis, TTL</li>
+          <li>[NAME_1] → Alice, [COLLEGE_1] → KMIT</li>
+          <li>Wiped when session ends</li>
+        </ul>
+      </div>
+      <div class="box">
+        <h3>Locker 2 — Persistent</h3>
+        <ul>
+          <li>Per user, MongoDB, AES-256</li>
+          <li>One blob: { name, college, email }</li>
+          <li>Until "Forget me"</li>
+          <li>Recreate session from it</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide" data-n="9">
+    <h1>Proof: Working Solution</h1>
+    <ul>
+      <li><strong>Live API:</strong> POST /api/chat — masked to AI, unmasked to you.</li>
+      <li><strong>Vault:</strong> GET/PUT /api/vault/consent, PUT /api/vault/profile, DELETE /api/vault/profile (Forget me).</li>
+      <li><strong>Security:</strong> GET /health/security — encryption & vault status.</li>
+      <li><strong>Docs:</strong> OpenAPI at /docs — try with Bearer token.</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="10">
+    <h1>Real-World Example</h1>
+    <ul>
+      <li><strong>Day 1 (Laptop):</strong> "I'm Priya from CBIT." → AI sees [NAME_1], [COLLEGE_1]; Priya sees her name in reply.</li>
+      <li><strong>Consent:</strong> "Remember my details / Sync across devices."</li>
+      <li><strong>We save:</strong> One encrypted profile in Locker 2.</li>
+      <li><strong>Day 2 (Phone):</strong> Login → we recreate mappings → session works with Priya & CBIT.</li>
+      <li><strong>Forget me:</strong> Profile & vaults cleared; AI never learned identity.</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="11">
+    <h1>Impact</h1>
+    <ul>
+      <li><strong>Privacy by design:</strong> Identity never enters the model.</li>
+      <li><strong>Compliance:</strong> Consent, Forget me, audit without PII.</li>
+      <li><strong>Cross-device:</strong> One encrypted profile; same experience; AI still blind.</li>
+      <li><strong>Trust:</strong> "The AI never sees my name — only placeholders."</li>
+    </ul>
+  </div>
+
+  <div class="slide" data-n="12">
+    <h1>Future Scope</h1>
+    <ul>
+      <li>More entity types: phone, IDs, addresses — same pipeline.</li>
+      <li>Per-user key derivation for stronger isolation.</li>
+      <li>On-prem / air-gapped deployment.</li>
+      <li>Compliance packs & audit exports for regulators.</li>
+    </ul>
+  </div>
+
+  <div class="slide thank-you" data-n="13">
+    <h1>Thank You</h1>
+    <p class="one-line">Encrypt identity; keep it outside the AI; resolve only at display time.</p>
+    <p class="subtitle" style="margin-top: 2rem;">Demo at our booth • Questions?</p>
+  </div>
+
+  <nav>
+    <button id="prev" aria-label="Previous">← Prev</button>
+    <button id="next" aria-label="Next">Next →</button>
+  </nav>
+  <div class="slide-num"><span id="current">1</span> / 13</div>
+
+  <script>
+    const slides = document.querySelectorAll('.slide');
+    const total = slides.length;
+    let idx = 0;
+    function go(n) {
+      idx = Math.max(0, Math.min(n, total - 1));
+      slides.forEach((s, i) => s.classList.toggle('active', i === idx));
+      document.getElementById('current').textContent = idx + 1;
+    }
+    document.getElementById('prev').onclick = () => go(idx - 1);
+    document.getElementById('next').onclick = () => go(idx + 1);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(idx + 1); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); go(idx - 1); }
+    });
+  </script>
+</body>
+</html>

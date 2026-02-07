@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: privacy-fortress-api
+    runtime: python
+    region: oregon
+    plan: free
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
+    envVars:
+      # ── Required — set these in Render Dashboard ──
+      - key: MONGODB_URI
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: APP_SECRET
+        sync: false
+      # ── CORS — your Vercel frontend URL ──
+      - key: CORS_ORIGINS
+        sync: false
+      # ── Defaults ──
+      - key: APP_ENV
+        value: production
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: VAULT_TTL_SECONDS
+        value: "1800"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
