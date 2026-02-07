@@ -135,61 +135,33 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    # ASCII Banner
-    print("\n" + "="*60)
-    print(r"""
-    ____       _                        ______           __                     
-   / __ \_____(_)   ______ ________  __/ ____/___  _____/ /_________  __________
-  / /_/ / ___/ / | / / __ `/ ___/ / / / /_  / __ \/ ___/ __/ ___/ _ \/ ___/ ___/
- / ____/ /  / /| |/ / /_/ / /__/ /_/ / __/ / /_/ / /  / /_/ /  /  __(__  |__  ) 
-/_/   /_/  /_/ |___/\__,_/\___/\__, /_/    \____/_/   \__/_/   \___/____/____/  
-                              /____/                                            
-    """)
-    print("="*60)
-    print("  Zero-Knowledge AI Chat with PII Protection")
-    print("  Version: 1.0.0")
-    print("="*60 + "\n")
-    
     logger.info("[STARTUP] Initializing Privacy Fortress...")
     
-    # Initialize database
+    # ── Eager-load spaCy model so first request is instant ──
+    try:
+        from app.middleware.ner_engine import NEREngine
+        _ner = NEREngine()
+        # Warm it with a test sentence to JIT-compile pipelines
+        _ner.detect("Test warmup for Privacy Fortress startup.")
+        logger.info("[OK] spaCy NER model preloaded and warmed")
+    except Exception as e:
+        logger.warning(f"[WARN] NER preload failed (will load on first request): {e}")
+    
+    # Initialize database + create indexes
     try:
         from app.database.mongodb import get_mongodb
-        from app.core.config import settings
         db = await get_mongodb()
-        
-        print("\n" + "-"*50)
-        print("  DATABASE CONNECTION")
-        print("-"*50)
-        print(f"  Provider    : MongoDB Atlas")
-        print(f"  Database    : {settings.MONGODB_DB_NAME}")
-        print(f"  Collections : sessions, messages, users, stats")
-        print(f"  Status      : CONNECTED")
-        print("-"*50 + "\n")
-        
-        logger.info(f"[OK] MongoDB connected to database: {settings.MONGODB_DB_NAME}")
+        logger.info(f"[OK] MongoDB connected: {settings.MONGODB_DB_NAME}")
     except Exception as e:
         logger.warning(f"[WARN] MongoDB not available: {e}")
     
     # Test Redis connection
     try:
         from app.vault.redis_client import get_redis_vault
-        from app.core.config import settings
         vault = get_redis_vault()
         health = vault.health_check()
-        
         if health["status"] == "healthy":
-            print("\n" + "-"*50)
-            print("  REDIS VAULT CONNECTION")
-            print("-"*50)
-            print(f"  Provider    : Redis Cloud")
-            print(f"  Host        : redis-12512.c16.us-east-1-2.ec2.cloud.redislabs.com")
-            print(f"  Encryption  : AES-256-GCM")
-            print(f"  TTL         : {settings.VAULT_TTL_SECONDS} seconds (30 min)")
-            print(f"  Status      : CONNECTED")
-            print("-"*50 + "\n")
-            
-            logger.info(f"[OK] Redis vault connected with AES-256-GCM encryption, TTL={settings.VAULT_TTL_SECONDS}s")
+            logger.info(f"[OK] Redis vault connected, TTL={settings.VAULT_TTL_SECONDS}s")
         else:
             logger.warning(f"[WARN] Redis issue: {health}")
     except Exception as e:
@@ -199,31 +171,13 @@ async def startup_event():
     try:
         from app.llm.groq_client import get_groq_client
         groq = get_groq_client()
-        
-        print("\n" + "-"*50)
-        print("  LLM API CONNECTION")
-        print("-"*50)
-        print(f"  Provider    : Groq Cloud")
-        print(f"  Model       : {groq.model}")
-        print(f"  Features    : Prompt Shield, Response Validator")
-        print(f"  Status      : CONNECTED")
-        print("-"*50 + "\n")
-        
-        logger.info(f"[OK] Groq LLM connected with model: {groq.model}")
+        logger.info(f"[OK] Groq LLM ready: {groq.model}")
     except Exception as e:
         logger.warning(f"[WARN] Groq not available: {e}")
     
-    # Final status
     port = os.environ.get('PORT', '8000')
-    print("\n" + "="*60)
-    print("  PRIVACY FORTRESS IS READY!")
-    print("="*60)
-    print(f"  API Docs    : http://0.0.0.0:{port}/docs")
-    print(f"  Health      : http://0.0.0.0:{port}/health")
-    print(f"  Environment : {settings.APP_ENV}")
-    print("="*60 + "\n")
-    
-    logger.info("[READY] Privacy Fortress is now accepting requests!")
+    env = settings.APP_ENV
+    logger.info(f"[READY] Privacy Fortress running on :{port} ({env})")
 
 
 # Shutdown event

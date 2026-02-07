@@ -5,9 +5,9 @@ services:
     region: oregon
     plan: free
     buildCommand: chmod +x build.sh && ./build.sh
-    startCommand: gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120
+    startCommand: gunicorn main:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 30 --graceful-timeout 30 --access-logfile - --preload
     envVars:
-      # ── Required — set these in Render Dashboard ──
+      # ── Required — set in Render Dashboard ──
       - key: MONGODB_URI
         sync: false
       - key: GROQ_API_KEY
