@@ -32,6 +32,10 @@ class UnmaskingResult:
     unmasked_text: str
     tokens_replaced: int
 
+    def __str__(self) -> str:
+        """Return unmasked_text so str(result) is always safe for Pydantic / f-strings."""
+        return self.unmasked_text
+
 
 class MaskingPipeline:
     """

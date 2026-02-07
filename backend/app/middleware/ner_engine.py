@@ -49,6 +49,7 @@ class NEREngine:
         'CARDINAL': 'NUMBER',
     }
     
+    
     # Terms to exclude from masking (common words that NER may incorrectly detect)
     EXCLUDED_TERMS = {
         # Common abbreviations
@@ -63,7 +64,22 @@ class NEREngine:
         'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
         'january', 'february', 'march', 'april', 'may', 'june',
         'july', 'august', 'september', 'october', 'november', 'december',
+        # ===== NEW: Prevent false positives =====
+        # Seasons and time periods (commonly misdetected as DATES)
+        'summer', 'winter', 'spring', 'fall', 'autumn', 'season', 'seasons',
+        'morning', 'afternoon', 'evening', 'night', 'today', 'tomorrow', 'yesterday',
+        # Generic location/org terms (prevent over-masking)
+        'college', 'school', 'university', 'company', 'office', 'home',
+        'city', 'state', 'country', 'place', 'location',
+        # Common verbs/adjectives that spaCy sometimes flags
+        'related', 'associated', 'connected', 'based', 'located',
+        # Generic nouns
+        'fruits', 'vegetables', 'food', 'drink', 'water',
+        'book', 'movie', 'song', 'music', 'art',
+        # Question words
+        'what', 'when', 'where', 'who', 'why', 'how',
     }
+
     
     # Priority entities (these are most important for privacy)
     PRIORITY_ENTITIES = {'USER', 'ORG', 'LOCATION', 'DATE'}
@@ -118,6 +134,19 @@ class NEREngine:
             if len(ent.text) < 2:
                 continue
             
+            # NEW: Skip generic multi-word phrases (e.g., "summer season")
+            words = ent.text.lower().split()
+            if len(words) > 1:
+                # If ALL words are in excluded list, skip the entire phrase
+                if all(word in self.EXCLUDED_TERMS for word in words):
+                    logger.debug(f"Skipping generic phrase: '{ent.text}'")
+                    continue
+            
+            # NEW: Skip if entity is too generic based on type
+            if not self._is_valid_entity(ent):
+                logger.debug(f"Skipping invalid entity: '{ent.text}' ({ent.label_})")
+                continue
+            
             # Map spaCy label to our type
             entity_type = self.ENTITY_MAPPING.get(ent.label_, 'OTHER')
             
@@ -136,6 +165,35 @@ class NEREngine:
         
         logger.debug(f"NER detected {len(entities)} entities in text")
         return entities
+    
+    def _is_valid_entity(self, ent) -> bool:
+        """
+        Validate if an entity is truly PII-sensitive or just a false positive.
+        Reject common nouns, generic terms, and low-confidence detections.
+        """
+        text = ent.text.lower()
+        label = ent.label_
+        
+        # ONLY mask these specific entity types (strict allowlist)
+        SENSITIVE_LABELS = {'PERSON', 'ORG', 'GPE'}
+        
+        # For non-sensitive types, require minimum length
+        if label not in SENSITIVE_LABELS:
+            if len(text) < 3:
+                return False
+        
+        # For PERSON entities, require proper capitalization (names are capitalized)
+        if label == 'PERSON':
+            # If text is all lowercase, it's probably not a real name
+            if text == text.lower():
+                return False
+        
+        # For ORG/GPE, reject if it's a single common word
+        if label in {'ORG', 'GPE'}:
+            if text in self.EXCLUDED_TERMS:
+                return False
+        
+        return True
     
     def _calculate_confidence(self, ent, entity_type: str) -> float:
         """

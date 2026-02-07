@@ -24,6 +24,18 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["sessions"])
 
 
+def _extract_unmasked_text(result) -> str:
+    """Extract the plain unmasked-text string from an UnmaskingResult."""
+    if result is None:
+        return ""
+    if isinstance(result, str):
+        return result
+    text = getattr(result, "unmasked_text", None)
+    if isinstance(text, str):
+        return text
+    return str(result) if result is not None else ""
+
+
 @router.get("/sessions", response_model=SessionListResponse)
 async def list_sessions(
     limit: int = 50,
@@ -147,7 +159,7 @@ async def get_session(
         message_responses = []
         for msg in messages:
             result = pipeline.unmask(msg["masked_content"])
-            display_content = result.unmasked_text
+            display_content = _extract_unmasked_text(result)
 
             message_responses.append(MessageResponse(
                 id=msg["_id"],

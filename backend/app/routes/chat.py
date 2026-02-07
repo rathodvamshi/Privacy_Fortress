@@ -29,13 +29,75 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 def _extract_unmasked_text(result) -> str:
-    """Extract unmasked text string from UnmaskingResult; never pass the object to Pydantic."""
+    """
+    Extract the plain unmasked-text string from an UnmaskingResult.
+
+    This MUST be called on every return value of ``pipeline.unmask()``
+    before the value is stored in a Pydantic model — Pydantic expects a
+    plain ``str``, not a dataclass.
+    """
     if result is None:
         return ""
+    if isinstance(result, str):
+        return result
     text = getattr(result, "unmasked_text", None)
     if isinstance(text, str):
         return text
-    return str(text) if text is not None else ""
+    # Last resort: str() now calls UnmaskingResult.__str__ → unmasked_text
+    return str(result) if result is not None else ""
+
+
+def _detect_pii_leak_in_response(response: str, pipeline) -> bool:
+    """
+    Detect if the AI's response contains actual PII values instead of tokens.
+    
+    Returns True if PII leak detected (AI exposed original values).
+    """
+    if not response:
+        return False
+    
+    # Get all token mappings (token -> original value)
+    mappings = pipeline.export_session_mappings()
+    
+    # Check if ANY original value appears in the response
+    # The AI should ONLY have tokens like [USER_1], not "Alice Smith"
+    for token_name, mapping_data in mappings.items():
+        original_value = mapping_data.get('original', '')
+        if original_value and len(original_value) > 2:  # Skip very short values
+            # Case-insensitive search
+            if original_value.lower() in response.lower():
+                logger.warning(f"PII LEAK: Found '{original_value}' in AI response (should be {token_name})")
+                return True
+    
+    return False
+
+
+def _sanitize_response(response: str, pipeline) -> str:
+    """
+    Sanitize AI response by replacing any leaked PII values with their tokens.
+    
+    This is a safety net in case the AI somehow echoes actual values.
+    """
+    mappings = pipeline.export_session_mappings()
+    sanitized = response
+    
+    # Replace each original value with its token
+    # Sort by length (longest first) to avoid partial replacements
+    sorted_mappings = sorted(
+        mappings.items(),
+        key=lambda x: len(x[1].get('original', '')),
+        reverse=True
+    )
+    
+    for token_name, mapping_data in sorted_mappings:
+        original_value = mapping_data.get('original', '')
+        if original_value and len(original_value) > 2:
+            # Case-insensitive replace
+            import re
+            pattern = re.compile(re.escape(original_value), re.IGNORECASE)
+            sanitized = pattern.sub(token_name, sanitized)
+    
+    return sanitized
 
 
 # CORS preflight handler
@@ -109,23 +171,13 @@ async def chat(
         # Get or create masking pipeline for this session
         pipeline = get_masking_pipeline(session_id)
 
-        # Two lockers: ephemeral first; if empty, recreate session state from persistent profile
+        # CRITICAL: Load ONLY this session's mappings from Redis vault
+        # DO NOT load profile mappings - this causes cross-session contamination
+        # Each session MUST have isolated token mappings for zero-knowledge guarantee
         existing_mappings = vault.get_mappings(session_id)
-        profile_vault = get_profile_vault()
-        consent = await profile_vault.get_consent(db, user_id)
-        has_consent = consent.get("sync_across_devices") or consent.get("remember_me")
-
         if existing_mappings:
             pipeline.load_session_mappings(existing_mappings)
-        elif has_consent:
-            profile = await profile_vault.get_profile(db, user_id)
-            if profile:
-                recreated = profile_to_session_mappings(profile)
-                if recreated:
-                    pipeline.load_session_mappings(recreated)
-                    vault.store_mappings(session_id, pipeline.export_session_mappings())
-        else:
-            pass
+            logger.info(f"Loaded {len(existing_mappings)} existing tokens for session")
         
         # Step 1: Show original message
         print(f"\n[2] ORIGINAL MESSAGE:")
@@ -169,7 +221,17 @@ async def chat(
         print(f"\n[7] AI RESPONSE (masked):")
         print(f"    \"{masked_response[:100]}{'...' if len(masked_response) > 100 else ''}\"")
         
-        # Step 6: Unmask LLM response
+        # Step 6: Validate AI response for PII leakage
+        # CRITICAL: The AI should ONLY see/use tokens like [USER_1], not actual values
+        # If the masked_response contains actual PII values, it means the AI leaked data
+        pii_leak_detected = _detect_pii_leak_in_response(masked_response, pipeline)
+        if pii_leak_detected:
+            logger.warning(f"[SECURITY] AI response contains PII! Sanitizing...")
+            print(f"\n[⚠️  WARNING] AI response leaked PII. Auto-sanitizing...")
+            # Replace leaked values with tokens in the response
+            masked_response = _sanitize_response(masked_response, pipeline)
+        
+        # Step 7: Unmask LLM response
         unmask_result = pipeline.unmask(masked_response)
         
         print(f"\n[8] UNMASKED RESPONSE (shown to user):")
@@ -446,8 +508,8 @@ async def chat_stream(
             full_response = ""
             async for chunk in groq.chat_stream(mask_result.masked_text):
                 full_response += chunk
-                # Unmask on-the-fly
-                unmasked_chunk = pipeline.unmask(chunk)
+                # Unmask on-the-fly — always extract the text string
+                unmasked_chunk = _extract_unmasked_text(pipeline.unmask(chunk))
                 yield f"data: {unmasked_chunk}\n\n"
             yield "data: [DONE]\n\n"
         

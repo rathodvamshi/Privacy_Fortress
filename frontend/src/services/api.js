@@ -180,6 +180,12 @@ export const api = {
     return data;
   },
 
+  /** Invalidate cached masked-prompt data so the next call fetches fresh. */
+  invalidateMaskedCache(sessionId, messageId) {
+    const cacheKey = `masked:${sessionId}:${messageId}`;
+    _cache.delete(cacheKey);
+  },
+
   // ── Session endpoints ───────────────────────────────────────────
   async listSessions() {
     const cached = cacheGet('sessions:list');

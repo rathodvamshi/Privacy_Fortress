@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
@@ -8,19 +8,8 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
     const [error, setError] = useState(null);
     const [activeSection, setActiveSection] = useState('flow'); // 'flow' | 'tokens'
 
-    useEffect(() => {
-        if (isOpen && message && sessionId) {
-            loadMaskedData();
-        }
-        if (!isOpen) {
-            setMaskedData(null);
-            setError(null);
-            setActiveSection('flow');
-        }
-    }, [isOpen, message?.id, sessionId]);
-
-    const loadMaskedData = async () => {
-        if (!message || !sessionId) return;
+    const loadMaskedData = useCallback(async () => {
+        if (!message?.id || !sessionId) return;
         setIsLoading(true);
         setError(null);
         try {
@@ -28,11 +17,24 @@ export function MaskedViewer({ message, sessionId, isOpen, onClose }) {
             setMaskedData(data);
         } catch (err) {
             console.error('Failed to load masked data:', err);
+            // Invalidate cache so next attempt fetches fresh
+            api.invalidateMaskedCache?.(sessionId, message.id);
             setError(err.message || 'Failed to load masked data');
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [message?.id, sessionId]);
+
+    useEffect(() => {
+        if (isOpen && message?.id && sessionId) {
+            loadMaskedData();
+        }
+        if (!isOpen) {
+            setMaskedData(null);
+            setError(null);
+            setActiveSection('flow');
+        }
+    }, [isOpen, message?.id, sessionId, loadMaskedData]);
 
     const formatTime = (seconds) => {
         if (!seconds || seconds <= 0) return 'Expired';

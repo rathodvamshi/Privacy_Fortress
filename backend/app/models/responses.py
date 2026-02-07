@@ -1,7 +1,7 @@
 """
 Response models for API endpoints
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
@@ -79,6 +79,18 @@ class MaskedPromptResponse(BaseModel):
         ...,
         description="Seconds until ephemeral session vault expires.",
     )
+
+    # ── Safety net: auto-convert UnmaskingResult → str so Pydantic never chokes ──
+    @field_validator("original_message", "ai_masked_response", "ai_unmasked_response", mode="before")
+    @classmethod
+    def _coerce_to_str(cls, v):
+        if isinstance(v, str):
+            return v
+        # If someone passes an UnmaskingResult (or anything with .unmasked_text), extract it
+        unmasked = getattr(v, "unmasked_text", None)
+        if isinstance(unmasked, str):
+            return unmasked
+        return str(v) if v is not None else ""
 
 
 class SessionResponse(BaseModel):
