@@ -91,6 +91,7 @@ _default_origins = [
     "http://127.0.0.1:5174",
     "http://127.0.0.1:5175",
     "http://127.0.0.1:3000",
+    "https://privacy-fortress.vercel.app",
 ]
 _env_origins = settings.cors_origins_list if settings.CORS_ORIGINS else []
 _all_origins = list(set(_default_origins + _env_origins))

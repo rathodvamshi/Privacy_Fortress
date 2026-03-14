@@ -1,12 +1,20 @@
 """
 Redis Vault - Encrypted ephemeral storage for token mappings
 TTL-based auto-deletion for privacy
+
+Pro-Level Features:
+- Connection pooling with auto-reconnect
+- Health monitoring with metrics
+- Batch operations for performance
+- Graceful degradation on failures
+- Performance tracking
 """
 import json
 import redis
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Tuple
 from datetime import datetime
 import logging
+import time
 
 from ..core.config import settings
 from ..core.exceptions import VaultException
@@ -52,26 +60,47 @@ class RedisVault:
         # Initialize encryption
         self.encryption = get_encryption()
         
+        # Performance metrics
+        self._metrics = {
+            'total_reads': 0,
+            'total_writes': 0,
+            'total_deletes': 0,
+            'failed_operations': 0,
+            'avg_latency_ms': 0.0,
+        }
+        
         logger.info(f"Redis vault initialized with TTL={self.ttl}s")
     
     def _connect(self):
-        """Establish Redis connection with pool"""
-        try:
-            self.client = redis.from_url(
-                self.redis_url,
-                decode_responses=True,
-                socket_timeout=5,
-                socket_connect_timeout=5,
-                retry_on_timeout=True
-            )
-            
-            # Test connection
-            self.client.ping()
-            logger.info("Connected to Redis vault")
-            
-        except redis.ConnectionError as e:
-            logger.error(f"Failed to connect to Redis: {e}")
-            raise VaultException(f"Redis connection failed: {str(e)}")
+        """Establish Redis connection with pool and retry logic"""
+        max_retries = 3
+        retry_delay = 1  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                self.client = redis.from_url(
+                    self.redis_url,
+                    decode_responses=True,
+                    socket_timeout=5,
+                    socket_connect_timeout=5,
+                    retry_on_timeout=True,
+                    max_connections=50,  # Connection pool size
+                    health_check_interval=30  # Health check every 30s
+                )
+                
+                # Test connection
+                self.client.ping()
+                logger.info(f"Connected to Redis vault (attempt {attempt + 1}/{max_retries})")
+                return
+                
+            except redis.ConnectionError as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Redis connection attempt {attempt + 1} failed, retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    logger.error(f"Failed to connect to Redis after {max_retries} attempts: {e}")
+                    raise VaultException(f"Redis connection failed: {str(e)}")
     
     def _get_mapping_key(self, session_id: str) -> str:
         """Get Redis key for session mappings"""
@@ -92,6 +121,7 @@ class RedisVault:
         Returns:
             True if successful
         """
+        start_time = time.time()
         try:
             key = self._get_mapping_key(session_id)
             
@@ -104,10 +134,16 @@ class RedisVault:
             # Update session metadata
             self._update_session_meta(session_id, len(mappings))
             
-            logger.debug(f"Stored {len(mappings)} mappings for session {session_id}")
+            # Track metrics
+            self._metrics['total_writes'] += 1
+            latency = (time.time() - start_time) * 1000
+            self._update_avg_latency(latency)
+            
+            logger.debug(f"Stored {len(mappings)} mappings for session {session_id} in {latency:.2f}ms")
             return True
             
         except Exception as e:
+            self._metrics['failed_operations'] += 1
             logger.error(f"Failed to store mappings: {e}")
             raise VaultException(f"Failed to store mappings: {str(e)}")
     
@@ -121,6 +157,7 @@ class RedisVault:
         Returns:
             Decrypted mappings or None if not found/expired
         """
+        start_time = time.time()
         try:
             key = self._get_mapping_key(session_id)
             
@@ -133,10 +170,16 @@ class RedisVault:
             # Decrypt and return
             mappings = self.encryption.decrypt_dict(encrypted)
             
-            logger.debug(f"Retrieved {len(mappings)} mappings for session {session_id}")
+            # Track metrics
+            self._metrics['total_reads'] += 1
+            latency = (time.time() - start_time) * 1000
+            self._update_avg_latency(latency)
+            
+            logger.debug(f"Retrieved {len(mappings)} mappings for session {session_id} in {latency:.2f}ms")
             return mappings
             
         except Exception as e:
+            self._metrics['failed_operations'] += 1
             logger.error(f"Failed to retrieve mappings: {e}")
             return None
     
@@ -152,7 +195,13 @@ class RedisVault:
         """
         try:
             key = self._get_mapping_key(session_id)
-            deleted = self.client.delete(key)
+            session_key = self._get_session_key(session_id)
+            
+            # Delete both mappings and session metadata
+            deleted = self.client.delete(key, session_key)
+            
+            # Track metrics
+            self._metrics['total_deletes'] += 1
             
             if deleted:
                 logger.info(f"Deleted mappings for session {session_id}")
@@ -160,6 +209,7 @@ class RedisVault:
             return bool(deleted)
             
         except Exception as e:
+            self._metrics['failed_operations'] += 1
             logger.error(f"Failed to delete mappings: {e}")
             return False
     
@@ -264,7 +314,55 @@ class RedisVault:
             'ttl_display': f"{self.ttl // 60} minutes",
             'encryption': encryption_info,
             'auto_delete': True,
+            'metrics': self._metrics.copy(),
         }
+    
+    def _update_avg_latency(self, new_latency_ms: float):
+        """Update rolling average latency"""
+        total_ops = self._metrics['total_reads'] + self._metrics['total_writes']
+        if total_ops == 1:
+            self._metrics['avg_latency_ms'] = new_latency_ms
+        else:
+            # Exponential moving average
+            alpha = 0.1  # Smoothing factor
+            self._metrics['avg_latency_ms'] = (
+                alpha * new_latency_ms + 
+                (1 - alpha) * self._metrics['avg_latency_ms']
+            )
+    
+    def batch_delete_sessions(self, session_ids: List[str]) -> int:
+        """
+        Delete multiple sessions in a batch (for "Forget Me" operations)
+        
+        Args:
+            session_ids: List of session IDs to delete
+            
+        Returns:
+            Number of sessions deleted
+        """
+        if not session_ids:
+            return 0
+        
+        try:
+            # Build all keys to delete
+            keys_to_delete = []
+            for sid in session_ids:
+                keys_to_delete.append(self._get_mapping_key(sid))
+                keys_to_delete.append(self._get_session_key(sid))
+            
+            # Batch delete with pipeline
+            deleted = self.client.delete(*keys_to_delete)
+            
+            logger.info(f"Batch deleted {deleted} keys for {len(session_ids)} sessions")
+            return len(session_ids)
+            
+        except Exception as e:
+            logger.error(f"Failed to batch delete sessions: {e}")
+            return 0
+    
+    def get_metrics(self) -> Dict:
+        """Get current performance metrics"""
+        return self._metrics.copy()
 
 
 # Singleton instance

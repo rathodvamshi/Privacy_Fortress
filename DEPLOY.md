@@ -1,4 +1,4 @@
-# 🚀 Privacy Fortress — Deployment Guide
+# Privacy Fortress Deployment Guide
 
 ## Architecture
 
@@ -54,11 +54,11 @@ Go to **Environment** tab and add these:
 
 | Key | Value |
 |-----|-------|
-| `MONGODB_URI` | `mongodb+srv://codehub369:ZeroLeak@cluster0.eh92scv.mongodb.net/?appName=Cluster0` |
-| `GROQ_API_KEY` | `gsk_5h2sa5KVeBOXMXTYhqML...` (your full key) |
-| `REDIS_URL` | `redis://default:Gg12Yku...@redis-12512.c16.us-east-1-2.ec2.cloud.redislabs.com:12512` |
-| `ENCRYPTION_KEY` | `privacy-fortress-secret-key-32b` |
-| `APP_SECRET` | `privacy-fortress-app-secret-2026` |
+| `MONGODB_URI` | `mongodb+srv://<user>:<password>@<cluster>/?appName=<app>` |
+| `GROQ_API_KEY` | `<your-groq-api-key>` |
+| `REDIS_URL` | `redis://default:<password>@<host>:<port>` |
+| `ENCRYPTION_KEY` | `<exactly-32-characters>` |
+| `APP_SECRET` | `<strong-random-secret>` |
 | `CORS_ORIGINS` | `https://your-app.vercel.app` ← (update after Vercel deploy) |
 | `APP_ENV` | `production` |
 | `PYTHON_VERSION` | `3.11.0` |
@@ -106,7 +106,7 @@ Your frontend URL will be: `https://your-app.vercel.app`
 
 ---
 
-## Step 4 — Connect CORS (Critical!)
+## Step 4 — Connect CORS (Critical)
 
 After both are deployed:
 
@@ -118,34 +118,50 @@ After both are deployed:
    (Use the exact Vercel URL, no trailing slash)
 3. Click **Save Changes** → Render will auto-redeploy
 
+If you use Vercel preview deployments, add multiple origins separated by commas:
+
+```
+https://your-app.vercel.app,https://your-app-git-main-your-team.vercel.app
+```
+
 ---
 
 ## Step 5 — Verify
 
 1. Open your Vercel URL
 2. Sign up / Log in
-3. Send a message with PII (e.g., "My name is John and my email is john@test.com")
-4. Check that masking works
-5. View masked prompt details
+3. Send: `My name is John and my email is john@test.com`
+4. Open a new session and ask: `What is my name?`
+5. Confirm output is unmasked and correct
+6. Confirm browser Network tab shows successful preflight for `/api/*`
+
+Quick backend checks:
+
+```bash
+curl https://privacy-fortress-api.onrender.com/health
+curl -i -X OPTIONS https://privacy-fortress-api.onrender.com/api/auth/register \
+    -H "Origin: https://your-app.vercel.app" \
+    -H "Access-Control-Request-Method: POST"
+```
 
 ---
 
 ## Troubleshooting
 
 ### "CORS error" in browser console
-→ Make sure `CORS_ORIGINS` on Render exactly matches your Vercel URL (with `https://`)
+-> Make sure `CORS_ORIGINS` on Render exactly matches your Vercel URL (with `https://`)
 
 ### "Failed to fetch" / Network error
-→ Make sure `VITE_API_URL` on Vercel matches your Render URL (with `https://`, no trailing `/`)
+-> Make sure `VITE_API_URL` on Vercel matches your Render URL (with `https://`, no trailing `/`)
 
 ### Backend 500 errors
-→ Check Render logs. Most likely a missing env var.
+-> Check Render logs. Most likely a missing env var.
 
 ### spaCy model not found
-→ The `build.sh` should handle this. Check Render build logs for errors.
+-> The `build.sh` should handle this. Check Render build logs for errors.
 
 ### Render free tier cold starts
-→ Free tier services sleep after 15 min of inactivity. First request takes ~30-50s to wake up. Use Starter plan for always-on.
+-> Free tier services sleep after inactivity. First request can take 30-60s. Use Starter plan for always-on.
 
 ---
 
@@ -167,6 +183,18 @@ npm run dev
 ```
 
 No `.env` needed for frontend locally (defaults to `http://localhost:8000`).
+
+---
+
+## Production Notes
+
+1. Never commit real secrets to git or docs.
+2. If a secret was ever committed, rotate it immediately.
+3. Deploy order for first-time setup:
+    - Deploy Render backend first
+    - Deploy Vercel frontend with `VITE_API_URL`
+    - Update Render `CORS_ORIGINS` with final Vercel URL
+    - Redeploy Render and run verification checks
 
 ---
 

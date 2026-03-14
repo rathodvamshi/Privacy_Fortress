@@ -52,6 +52,33 @@ class FuzzyEngine:
         'William', 'Linda', 'Richard', 'Elizabeth', 'Joseph', 'Barbara',
         'Rahul', 'Priya', 'Amit', 'Anita', 'Raj', 'Pooja', 'Vikram',
         'Sneha', 'Arjun', 'Kavya', 'Rohan', 'Neha', 'Arun', 'Sanjay',
+        # Added Indian names for broader coverage
+        'Vijay', 'Vamshi', 'Vamsi', 'Ravi', 'Kumar', 'Suresh', 'Ramesh',
+        'Venkat', 'Krishna', 'Srinivas', 'Srikanth', 'Rajesh', 'Sunil',
+        'Anil', 'Manoj', 'Vinod', 'Ganesh', 'Harsha', 'Chandra',
+        'Lakshmi', 'Swathi', 'Divya', 'Sravani', 'Meena', 'Geeta',
+        'Rina', 'Sita', 'Asha', 'Deepa', 'Sunita', 'Rekha', 'Usha',
+        'Kiran', 'Naveen', 'Pavan', 'Raju', 'Hari', 'Mohan', 'Gopal',
+        'Aditya', 'Akash', 'Akhil', 'Nikhil', 'Siddharth', 'Varun',
+        'Nandini', 'Anjali', 'Ritu', 'Pallavi', 'Shruti', 'Megha',
+        'Sandeep', 'Sudhir', 'Ashok', 'Prakash', 'Dinesh', 'Mahesh',
+        'Ahmed', 'Mohammed', 'Imran', 'Faisal', 'Ayesha', 'Fatima',
+        'Sarah', 'Daniel', 'Thomas', 'Andrew', 'Matthew', 'Jessica',
+        'Ashley', 'Amanda', 'Sophia', 'Isabella', 'Olivia', 'Liam',
+        'Noah', 'Ethan', 'Mason', 'Lucas', 'Aarav', 'Vivaan',
+    }
+    
+    # Known locations / cities (for fuzzy matching)
+    KNOWN_LOCATIONS: Set[str] = {
+        'Hyderabad', 'Bangalore', 'Bengaluru', 'Delhi', 'Mumbai',
+        'Chennai', 'Kolkata', 'Pune', 'Ahmedabad', 'Jaipur',
+        'Lucknow', 'Chandigarh', 'Bhopal', 'Indore', 'Nagpur',
+        'Visakhapatnam', 'Coimbatore', 'Kochi', 'Guwahati', 'Patna',
+        'Secunderabad', 'Noida', 'Gurgaon', 'Gurugram', 'Faridabad',
+        'Mysore', 'Vijayawada', 'Warangal', 'Tirupati', 'Guntur',
+        'London', 'Paris', 'Tokyo', 'Singapore', 'Dubai',
+        'New York', 'San Francisco', 'Los Angeles', 'Chicago',
+        'Boston', 'Seattle', 'Austin', 'Toronto', 'Sydney',
     }
     
     def __init__(self, threshold: int = 85):
@@ -76,6 +103,9 @@ class FuzzyEngine:
         
         for college in self.KNOWN_COLLEGES:
             entity_map[college.lower()] = 'COLLEGE'
+        
+        for location in self.KNOWN_LOCATIONS:
+            entity_map[location.lower()] = 'LOCATION'
         
         return entity_map
     

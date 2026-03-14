@@ -178,6 +178,11 @@ async def forget_me(req: Request, current_user: dict = Depends(get_current_user)
     """
     Forget me: delete persistent profile (Locker 2) and clear ephemeral vault (Locker 1)
     for all of this user's sessions.
+    
+    Pro Features:
+    - Batch delete for performance
+    - Comprehensive cleanup
+    - Audit trail
     """
     user_id = current_user["user_id"]
     db = await get_mongodb()
@@ -185,21 +190,34 @@ async def forget_me(req: Request, current_user: dict = Depends(get_current_user)
     redis_vault = get_redis_vault()
 
     profile_deleted = False
-    if db.client:
-        profile_deleted = await profile_vault.delete_profile(db, user_id)
-
     ephemeral_cleared = 0
+    
+    # Delete persistent profile (Locker 2)
     if db.client:
+        profile_deleted = await profile_vault.delete_profile(db, user_id, soft_delete=False)
+
+    # Batch delete all ephemeral vaults for this user (Locker 1)
+    if db.client:
+        # Get all session IDs for this user
+        session_ids = []
         cursor = db.sessions.find({"user_id": user_id}, {"_id": 1})
         async for session in cursor:
-            sid = session["_id"]
-            if redis_vault.delete_mappings(sid):
-                ephemeral_cleared += 1
-            clear_pipeline(sid)
+            session_ids.append(session["_id"])
+        
+        # Batch delete from Redis
+        if session_ids:
+            ephemeral_cleared = redis_vault.batch_delete_sessions(session_ids)
+            
+            # Clear pipeline cache for all sessions
+            for sid in session_ids:
+                clear_pipeline(sid)
 
+    # Audit log
     audit = get_audit_logger()
     ip = req.client.host if req.client else None
     audit.log_profile_delete(user_id, ip)
+
+    logger.info(f"Forget Me completed for user {user_id[:8]}... - Profile: {profile_deleted}, Sessions: {ephemeral_cleared}")
 
     return ForgetMeResponse(
         status="deleted",

@@ -307,6 +307,42 @@ export const api = {
     return handleResponse(response);
   },
 
+  // ── Vault / Consent endpoints ──────────────────────────────────
+  async getVaultConsent() {
+    const response = await fetch(`${API_BASE_URL}/vault/consent`, {
+      headers: authHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async updateVaultConsent(data) {
+    const response = await fetch(`${API_BASE_URL}/vault/consent`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse(response);
+  },
+
+  async getVaultProfile() {
+    const response = await fetch(`${API_BASE_URL}/vault/profile`, {
+      headers: authHeaders(),
+    });
+    return handleResponse(response);
+  },
+
+  async forgetMe() {
+    const response = await fetch(`${API_BASE_URL}/vault/profile`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    cacheInvalidate('profile');
+    cacheInvalidate('privacy:');
+    cacheInvalidate('sessions:');
+    cacheClear();
+    return handleResponse(response);
+  },
+
   // ── Health endpoint (public) ────────────────────────────────────
   async getHealth() {
     const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';

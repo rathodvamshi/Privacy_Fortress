@@ -57,12 +57,35 @@ class MongoDBClient:
     async def create_indexes(self):
         """Create database indexes"""
         try:
+            # Session indexes
             await self.sessions.create_index("user_id")
             await self.sessions.create_index("created_at")
+            
+            # Message indexes
             await self.messages.create_index("session_id")
             await self.messages.create_index([("session_id", 1), ("timestamp", 1)])
+            
+            # Encrypted profile indexes (Locker 2)
             if self.encrypted_profiles is not None:
+                # Primary lookup index
+                await self.encrypted_profiles.create_index("_id")  # user_id
+                
+                # Timestamp indexes for maintenance
                 await self.encrypted_profiles.create_index("updated_at")
+                await self.encrypted_profiles.create_index("created_at")
+                
+                # Soft delete cleanup index
+                await self.encrypted_profiles.create_index("deletion_scheduled_for", sparse=True)
+                
+                # Schema migration index
+                await self.encrypted_profiles.create_index("schema_version")
+                
+                # Consent query optimization
+                await self.encrypted_profiles.create_index([("_id", 1), ("consent_remember", 1)])
+                await self.encrypted_profiles.create_index([("_id", 1), ("consent_sync", 1)])
+                
+                logger.info("Pro-level indexes created for encrypted_profiles (Locker 2)")
+            
             logger.info("Database indexes created")
         except Exception as e:
             logger.error(f"Failed to create indexes: {e}")

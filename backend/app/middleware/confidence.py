@@ -68,6 +68,8 @@ class ConfidenceScorer:
         'DATE': 4,
         'MONEY': 3,
         'NUMBER': 2,
+        'HEALTH': 9,
+        'SECRET': 10,
         'OTHER': 1,
     }
     

@@ -3592,6 +3592,147 @@ body {
 }
 
 /* ============================================
+   VAULT — Consent toggles, locker cards, status
+   ============================================ */
+.pp-vault-status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pp-vault-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.pp-vault-dot.active   { background: #10b981; box-shadow: 0 0 8px rgba(16,185,129,0.5); }
+.pp-vault-dot.inactive { background: #6b7280; }
+
+/* Consent toggle rows */
+.pp-consent-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+.pp-consent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pp-consent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pp-consent-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pp-consent-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Toggle switch */
+.pp-toggle {
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  border: 2px solid transparent;
+  padding: 2px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+  position: relative;
+  background: rgba(255,255,255,0.08);
+}
+.pp-toggle.on  { background: #10b981; border-color: rgba(16,185,129,0.3); }
+.pp-toggle.off { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.08); }
+.pp-toggle:disabled { opacity: 0.5; cursor: default; }
+
+.pp-toggle-knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.25s ease;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+}
+.pp-toggle.on .pp-toggle-knob  { transform: translateX(22px); }
+.pp-toggle.off .pp-toggle-knob { transform: translateX(0); }
+
+/* Two-locker architecture cards */
+.pp-vault-lockers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.pp-vault-locker {
+  border-radius: 12px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.pp-vault-locker.ephemeral  { background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.15); }
+.pp-vault-locker.persistent { background: rgba(16,185,129,0.06); border-color: rgba(16,185,129,0.15); }
+
+.pp-locker-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pp-locker-icon {
+  font-size: 18px;
+}
+
+.pp-locker-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pp-locker-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pp-locker-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.pp-locker-row span:first-child { color: var(--text-muted); }
+.pp-locker-row span:last-child  { color: var(--text-primary); font-weight: 500; text-align: right; }
+
+@media (max-width: 640px) {
+  .pp-vault-lockers {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 640px) {

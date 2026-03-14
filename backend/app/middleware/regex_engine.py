@@ -160,11 +160,45 @@ class RegexEngine:
             'description': 'College roll numbers'
         },
         
-        # Employee IDs (generic)
+        # OTP / Verification Codes (Context Aware)
+        # matches: "OTP is 123456", "code: 1234", "pin 123456"
+        'OTP': {
+            'pattern': r'(?:\b(?:OTP|code|pin|verification|password)\s*(?:is|:|to|-)?\s*)(\d{4,8})\b',
+            'confidence': 0.90,
+            'description': 'One-Time Passwords and PINs'  
+        },
+
+        # API Keys (Generic and Specific)
+        # matches: sk-..., ghp_..., AWS keys, or generic "Key: XXXXX"
+        'API_KEY': {
+            'pattern': r'''
+                (?:
+                    # Known prefixes (OpenAI, Stripe, GitHub, AWS, Google)
+                    \b(?:sk|pk|rk|ghp|gho|ghu|xoxb|xoxp|AIza|AKIA)[-_][a-zA-Z0-9]{20,}
+                    |
+                    # Generic Context: "API Key: XXXXX"
+                    (?:\b(?:api|secret)\s*key\s*(?:is|:|to|-)?\s*)([a-zA-Z0-9-_]{16,})
+                )\b
+            ''',
+            'confidence': 0.99,
+            'description': 'API Keys and Secrets'
+        },
+
+        # Employee IDs (Enhanced)
+        # matches: INF12345, EMP-123, ID: 90909
         'EMPLOYEE_ID': {
-            'pattern': r'\b(?:EMP|ID|EMPLOYEE)[-_]?\d{4,10}\b',
+            'pattern': r'\b(?:EMP|ID|EMPLOYEE|[A-Z]{2,4})[-_]?\d{4,10}\b',
             'confidence': 0.85,
             'description': 'Employee IDs'
+        },
+
+        # High Recall Safety Net (Suspicious Numbers)
+        # Any 6-16 digit number not caught by other patterns 
+        # warrants inspection/masking as potential account/ID number
+        'SUSPICIOUS_NUMBER': {
+            'pattern': r'\b\d{6,16}\b',
+            'confidence': 0.60, # Lower confidence, relies on DecisionEngine
+            'description': 'Unidentified Long Number Sequence'
         },
     }
     

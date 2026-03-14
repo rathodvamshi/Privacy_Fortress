@@ -27,6 +27,14 @@ export function ProfilePage({ onClose }) {
     const [deleteText, setDeleteText] = useState('');
     const [deleting, setDeleting] = useState(false);
 
+    // Vault state
+    const [vaultMeta, setVaultMeta] = useState(null);
+    const [vaultLoading, setVaultLoading] = useState(false);
+    const [showForgetConfirm, setShowForgetConfirm] = useState(false);
+    const [forgetText, setForgetText] = useState('');
+    const [forgetting, setForgetting] = useState(false);
+    const [togglingConsent, setTogglingConsent] = useState(null);
+
     // Load profile data
     const loadProfile = useCallback(async () => {
         setLoading(true);
@@ -44,7 +52,21 @@ export function ProfilePage({ onClose }) {
         }
     }, []);
 
-    useEffect(() => { loadProfile(); }, [loadProfile]);
+    // Load vault metadata
+    const loadVaultMeta = useCallback(async () => {
+        setVaultLoading(true);
+        try {
+            const data = await api.getVaultProfile();
+            setVaultMeta(data);
+        } catch (err) {
+            // Vault endpoints may not exist yet — silently ignore
+            setVaultMeta(null);
+        } finally {
+            setVaultLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { loadProfile(); loadVaultMeta(); }, [loadProfile, loadVaultMeta]);
 
     useEffect(() => {
         if (user?.name) setNewName(user.name);
@@ -113,6 +135,41 @@ export function ProfilePage({ onClose }) {
             addToast(err.message || 'Failed to delete account', 'error');
         } finally {
             setDeleting(false);
+        }
+    };
+
+    // Vault handlers
+    const handleToggleConsent = async (field) => {
+        if (!vaultMeta?.consent) return;
+        setTogglingConsent(field);
+        try {
+            const newVal = !vaultMeta.consent[field];
+            await api.updateVaultConsent({ [field]: newVal });
+            setVaultMeta(prev => ({
+                ...prev,
+                consent: { ...prev.consent, [field]: newVal },
+            }));
+            addToast(`${field === 'remember_me' ? 'Remember Me' : 'Cross-Device Sync'} ${newVal ? 'enabled' : 'disabled'}`, 'success');
+        } catch (err) {
+            addToast(err.message || 'Failed to update consent', 'error');
+        } finally {
+            setTogglingConsent(null);
+        }
+    };
+
+    const handleForgetMe = async () => {
+        if (forgetText !== 'FORGET') return;
+        setForgetting(true);
+        try {
+            const result = await api.forgetMe();
+            addToast('All vault data wiped successfully', 'success');
+            setShowForgetConfirm(false);
+            setForgetText('');
+            loadVaultMeta();
+        } catch (err) {
+            addToast(err.message || 'Forget Me failed', 'error');
+        } finally {
+            setForgetting(false);
         }
     };
 
@@ -293,8 +350,9 @@ export function ProfilePage({ onClose }) {
                     <nav className="pp-tabs">
                         {[
                             { key: 'overview', label: 'Overview', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> },
+                            { key: 'vault', label: 'Vault', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> },
                             { key: 'security', label: 'Security', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> },
-                            { key: 'privacy', label: 'Privacy Stats', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg> },
+                            { key: 'privacy', label: 'Privacy Stats', icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg> },
                         ].map(t => (
                             <button key={t.key} className={`pp-tab ${activeTab === t.key ? 'active' : ''}`} onClick={() => setActiveTab(t.key)}>
                                 {t.icon}{t.label}
@@ -357,6 +415,130 @@ export function ProfilePage({ onClose }) {
 
                         {/* ── SECURITY ── */}
                         {activeTab === 'security' && (
+                            <div className="pp-panel" key="security">
+                                {/* Persistent Vault Card */}
+                                <div className="pp-card">
+                                    <h3 className="pp-card-title">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                                        Persistent Vault (Locker 2)
+                                    </h3>
+                                    {vaultLoading ? (
+                                        <div className="pp-sec-info"><p>Loading vault status…</p></div>
+                                    ) : (
+                                        <div className="pp-sec-info">
+                                            <div className="pp-vault-status-row">
+                                                <span className={`pp-vault-dot ${vaultMeta?.has_profile ? 'active' : 'inactive'}`}></span>
+                                                <span>{vaultMeta?.has_profile ? 'Profile stored (AES-256-GCM encrypted)' : 'No persistent profile stored yet'}</span>
+                                            </div>
+                                            <p style={{ fontSize: '0.82rem', opacity: 0.7, marginTop: '6px' }}>
+                                                Your profile (name, college, email) is encrypted at rest in MongoDB. It is decrypted only in server RAM to recreate session mappings when you open an old chat.
+                                            </p>
+
+                                            {/* Consent Toggles */}
+                                            <div className="pp-consent-toggles">
+                                                <div className="pp-consent-row">
+                                                    <div className="pp-consent-info">
+                                                        <span className="pp-consent-label">🧠 Remember Me</span>
+                                                        <span className="pp-consent-desc">Persist your PII profile so old sessions can be unmasked even after Redis TTL expires</span>
+                                                    </div>
+                                                    <button
+                                                        className={`pp-toggle ${vaultMeta?.consent?.remember_me ? 'on' : 'off'}`}
+                                                        onClick={() => handleToggleConsent('remember_me')}
+                                                        disabled={togglingConsent === 'remember_me'}
+                                                    >
+                                                        <span className="pp-toggle-knob"></span>
+                                                    </button>
+                                                </div>
+                                                <div className="pp-consent-row">
+                                                    <div className="pp-consent-info">
+                                                        <span className="pp-consent-label">🔄 Cross-Device Sync</span>
+                                                        <span className="pp-consent-desc">Sync encrypted profile across devices so sessions unmask everywhere</span>
+                                                    </div>
+                                                    <button
+                                                        className={`pp-toggle ${vaultMeta?.consent?.sync_across_devices ? 'on' : 'off'}`}
+                                                        onClick={() => handleToggleConsent('sync_across_devices')}
+                                                        disabled={togglingConsent === 'sync_across_devices'}
+                                                    >
+                                                        <span className="pp-toggle-knob"></span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Two-Locker Architecture */}
+                                <div className="pp-card">
+                                    <h3 className="pp-card-title">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                                        Two-Locker Architecture
+                                    </h3>
+                                    <div className="pp-vault-lockers">
+                                        <div className="pp-vault-locker ephemeral">
+                                            <div className="pp-locker-head">
+                                                <span className="pp-locker-icon">⚡</span>
+                                                <span className="pp-locker-title">Locker 1 — Ephemeral</span>
+                                            </div>
+                                            <div className="pp-locker-details">
+                                                <div className="pp-locker-row"><span>Storage</span><span>Redis (AES-256-GCM)</span></div>
+                                                <div className="pp-locker-row"><span>Scope</span><span>Per session</span></div>
+                                                <div className="pp-locker-row"><span>TTL</span><span>30 minutes auto-delete</span></div>
+                                                <div className="pp-locker-row"><span>Purpose</span><span>Live session token mappings</span></div>
+                                            </div>
+                                        </div>
+                                        <div className="pp-vault-locker persistent">
+                                            <div className="pp-locker-head">
+                                                <span className="pp-locker-icon">🔐</span>
+                                                <span className="pp-locker-title">Locker 2 — Persistent</span>
+                                            </div>
+                                            <div className="pp-locker-details">
+                                                <div className="pp-locker-row"><span>Storage</span><span>MongoDB (AES-256-GCM)</span></div>
+                                                <div className="pp-locker-row"><span>Scope</span><span>Per user (one profile)</span></div>
+                                                <div className="pp-locker-row"><span>Lifecycle</span><span>Consent-based, until Forget Me</span></div>
+                                                <div className="pp-locker-row"><span>Purpose</span><span>Cross-device sync & session recreation</span></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Forget Me — Danger Zone */}
+                                <div className="pp-card danger">
+                                    <h3 className="pp-card-title danger">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                        Forget Me
+                                    </h3>
+                                    {!showForgetConfirm ? (
+                                        <div className="pp-sec-info">
+                                            <p>Permanently delete your encrypted profile from the persistent vault and clear all ephemeral session vaults. Old messages will show masked placeholders only.</p>
+                                            <button className="pp-btn danger" onClick={() => setShowForgetConfirm(true)}>Forget Me</button>
+                                        </div>
+                                    ) : (
+                                        <div className="pp-delete-flow">
+                                            <div className="pp-delete-warning">
+                                                ⚠️ This will wipe your persistent encrypted profile (Locker 2) and clear all ephemeral session vaults (Locker 1). Type <strong>FORGET</strong> to confirm.
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={forgetText}
+                                                onChange={(e) => setForgetText(e.target.value)}
+                                                placeholder='Type "FORGET" to confirm'
+                                                className="pp-delete-input"
+                                                autoFocus
+                                            />
+                                            <div className="pp-form-actions">
+                                                <button className="pp-btn danger" disabled={forgetText !== 'FORGET' || forgetting} onClick={handleForgetMe}>
+                                                    {forgetting ? 'Wiping…' : 'Wipe All Vault Data'}
+                                                </button>
+                                                <button className="pp-btn ghost" onClick={() => { setShowForgetConfirm(false); setForgetText(''); }}>Cancel</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── SECURITY (Account) ── */}
+                        {activeTab === 'vault' && (
                             <div className="pp-panel" key="security">
                                 {/* Change Password */}
                                 <div className="pp-card">

@@ -1,15 +1,113 @@
 """
-Tokenizer - Deterministic token generation and bidirectional mapping
-Ensures consistent masking within a session
+Tokenizer — Deterministic token generation with 9-type canonical system
+and cross-session consistency via profile seeding.
+
+Entity types: USER, EMAIL, PHONE, COLLEGE, ORG, LOCATION, ID, HEALTH, SECRET
+Token format: [ENTITY_TYPE_INDEX]  e.g. [USER_1], [EMAIL_1]
+
+Modes:
+  - BRACKET mode (default): [USER_1], [LOCATION_1] — for debugging / transparent masking
+  - SYNTHETIC mode: replaces entities with realistic fake data so the LLM
+    reasons naturally (e.g. "Vijay" → "John", "Hyderabad" → "Springfield").
+    Synthetic values are deterministic per session so unmasking is exact.
+
+Rules:
+  - Profile defines token identity; sessions reuse and extend it.
+  - Normalization: lowercase, trim, collapse whitespace before every lookup.
+  - Type locking: once value→TYPE is assigned, it never changes.
+  - Longest match: overlapping entities resolved by longest span.
 """
+import re
+import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
-import hashlib
 import logging
 
 logger = logging.getLogger(__name__)
 
+# ─── Canonical 9-type system ──────────────────────────────────────────────
+CANONICAL_TYPES = {"USER", "EMAIL", "PHONE", "COLLEGE", "ORG", "LOCATION", "ID", "HEALTH", "SECRET"}
 
+# ─── Synthetic data pools ─────────────────────────────────────────────────
+# Deterministic fake replacements so the LLM sees "real-looking" data
+# instead of bracket tokens, keeping its reasoning quality high.
+SYNTHETIC_NAMES = [
+    "Alex", "Jordan", "Morgan", "Casey", "Taylor", "Riley",
+    "Quinn", "Harper", "Avery", "Dakota", "Reese", "Skyler",
+    "Jamie", "Charlie", "Robin", "Drew", "Sage", "Finley",
+    "Emerson", "Devon", "Parker", "Blair", "Lane", "Rowan",
+    "Hayden", "Cameron", "Logan", "Ellis", "Brooks", "Peyton",
+]
+
+SYNTHETIC_LOCATIONS = [
+    "Springfield", "Riverside", "Lakewood", "Greenville", "Fairview",
+    "Madison", "Georgetown", "Franklin", "Arlington", "Oakville",
+    "Westfield", "Clearwater", "Brookhaven", "Sunnyvale", "Maplewood",
+    "Edgewood", "Woodbridge", "Ridgewood", "Hillcrest", "Meadowbrook",
+]
+
+SYNTHETIC_ORGS = [
+    "Acme Corp", "Bluebird Inc", "Summit Tech", "Pinnacle Labs",
+    "Cascade Solutions", "Trident Systems", "Nova Digital", "Vertex AI",
+    "Helix Dynamics", "Prism Analytics",
+]
+
+SYNTHETIC_COLLEGES = [
+    "Ivy Technical Institute", "Maple Valley University",
+    "Pacific Coast College", "Sunrise Academy",
+    "Northern Star University", "Crystal Lake Institute",
+]
+
+SYNTHETIC_EMAILS_DOMAINS = [
+    "example.com", "test.org", "sample.net", "demo.io", "placeholder.edu",
+]
+
+SYNTHETIC_PHONES = [
+    "555-0101", "555-0142", "555-0173", "555-0199", "555-0123",
+    "555-0156", "555-0188", "555-0134", "555-0167", "555-0145",
+]
+
+# Map legacy / spaCy / regex types → canonical type
+TYPE_CONSOLIDATION: Dict[str, str] = {
+    # Direct canonical
+    "USER": "USER", "EMAIL": "EMAIL", "PHONE": "PHONE",
+    "COLLEGE": "COLLEGE", "ORG": "ORG", "LOCATION": "LOCATION", "ID": "ID",
+    "HEALTH": "HEALTH", "SECRET": "SECRET",
+    
+    # Mapped types
+    "HEALTH_INFO": "HEALTH",
+    "OTP": "SECRET", "PASSWORD": "SECRET", "API_KEY": "SECRET", "AUTH_TOKEN": "SECRET",
+            
+    # spaCy label aliases
+    "PERSON": "USER", "GPE": "LOCATION", "LOC": "LOCATION",
+    # Regex / legacy ID-class types
+    "AADHAAR": "ID", "PAN": "ID", "CREDIT_CARD": "ID", "SSN": "ID",
+    "PASSPORT": "ID", "ROLL_NUMBER": "ID", "EMPLOYEE_ID": "ID",
+    "BANK_ACCOUNT": "ID", "VEHICLE_REG": "ID", "IP_ADDRESS": "ID",
+    "DOB": "ID", "URL": "ID", "DATE": "ID", "TIME": "ID",
+    "MONEY": "ID", "NUMBER": "ID", "PERCENT": "ID", "QUANTITY": "ID",
+    "LANGUAGE": "ID", "ORDINAL": "ID", "CARDINAL": "ID",
+    "SUSPICIOUS_NUMBER": "ID",
+    
+    # spaCy misc → nearest canonical
+    "ADDRESS": "LOCATION", "FACILITY": "LOCATION",
+    "GROUP": "ORG", "NORP": "ORG",
+    "PRODUCT": "ORG", "EVENT": "ORG", "WORK": "ORG", "LAW": "ORG",
+    "OTHER": "ID",
+}
+
+
+def normalize(value: str) -> str:
+    """Normalize a value: lowercase → trim → collapse whitespace."""
+    return re.sub(r"\s+", " ", value.strip().lower())
+
+
+def consolidate_type(raw_type: str) -> str:
+    """Map any entity type string to one of the 7 canonical types."""
+    return TYPE_CONSOLIDATION.get(raw_type.upper(), "ID")
+
+
+# ─── Data classes ─────────────────────────────────────────────────────────
 @dataclass
 class ScoredEntity:
     """Entity with aggregated confidence score"""
@@ -31,177 +129,216 @@ class TokenMapping:
     positions: List[Tuple[int, int]] = field(default_factory=list)
 
 
+# ─── Tokenizer ────────────────────────────────────────────────────────────
 class Tokenizer:
     """
-    Deterministic tokenizer that replaces PII with consistent tokens
-    [USER_1], [ORG_1], [EMAIL_1], etc.
+    Deterministic tokenizer with 9 canonical types.
+
+    Supports two modes:
+    - BRACKET (default): [USER_1], [LOCATION_1] - transparent, debuggable.
+    - SYNTHETIC: replaces with realistic fake data ("Alex", "Springfield")
+      so the LLM reasons naturally. Unmasking still works exactly.
+
+    Invariants
+    ----------
+    1. Same normalized value -> same token (within and across sessions via profile).
+    2. Type lock: once value->TYPE is set, detection can never reclassify it.
+    3. Token index is per-type: USER_1, USER_2 ... EMAIL_1, EMAIL_2 ...
+    4. Profile seeds the tokenizer BEFORE detection runs.
     """
     
-    # Token prefix for each entity type
-    TOKEN_PREFIXES = {
-        'USER': 'USER',
-        'ORG': 'ORG',
-        'COLLEGE': 'COLLEGE',
-        'LOCATION': 'LOCATION',
-        'EMAIL': 'EMAIL',
-        'PHONE': 'PHONE',
-        'AADHAAR': 'AADHAAR',
-        'PAN': 'PAN',
-        'CREDIT_CARD': 'CARD',
-        'SSN': 'SSN',
-        'IP_ADDRESS': 'IP',
-        'DOB': 'DOB',
-        'BANK_ACCOUNT': 'BANK',
-        'PASSPORT': 'PASSPORT',
-        'VEHICLE_REG': 'VEHICLE',
-        'ROLL_NUMBER': 'ROLL',
-        'EMPLOYEE_ID': 'EMPID',
-        'URL': 'URL',
-        'ADDRESS': 'ADDRESS',
-        'DATE': 'DATE',
-        'MONEY': 'MONEY',
-        'GROUP': 'GROUP',
-        'FACILITY': 'FACILITY',
-        'PRODUCT': 'PRODUCT',
-        'EVENT': 'EVENT',
-        'WORK': 'WORK',
-        'LAW': 'LAW',
-        'LANGUAGE': 'LANG',
-        'TIME': 'TIME',
-        'PERCENT': 'PERCENT',
-        'QUANTITY': 'QTY',
-        'NUMBER': 'NUM',
-        'OTHER': 'OTHER',
-    }
-    
-    def __init__(self, session_id: str):
-        """
-        Initialize tokenizer for a session
-        
-        Args:
-            session_id: Unique session identifier
-        """
+    def __init__(self, session_id: str, synthetic_mode: bool = False):
         self.session_id = session_id
-        
-        # Counter for each entity type
+        self.synthetic_mode = synthetic_mode
+        # Per-type counters: {"USER": 2, "EMAIL": 1, ...}
         self.type_counters: Dict[str, int] = {}
-        
-        # Value to token mapping (for deterministic tokenization)
+        # normalized_value → token string
         self.value_to_token: Dict[str, str] = {}
-        
-        # Token to value mapping (for unmasking)
+        # token string → TokenMapping
         self.token_to_value: Dict[str, TokenMapping] = {}
+        # TYPE LOCK: normalized_value → canonical type (never changes once set)
+        self._type_lock: Dict[str, str] = {}
+        # Synthetic display text: token → fake visible string
+        self._synthetic_display: Dict[str, str] = {}
+        # Seed RNG deterministically from session_id for reproducibility
+        self._rng = random.Random(hash(session_id))
     
     def generate_token(self, entity_type: str, value: str) -> str:
         """
-        Generate a deterministic token for a value
-        If the value was seen before, return the same token
-        
-        Args:
-            entity_type: Type of entity (USER, EMAIL, etc.)
-            value: Original value to tokenize
-            
-        Returns:
-            Token string like [USER_1]
+        Return a deterministic token for *value*.
+        If the normalized value was seen before → return existing token.
+        Otherwise mint a new [TYPE_N] token and lock the type.
         """
-        # Normalize value for consistent matching
-        normalized = value.strip().lower()
-        
-        # Check if we've seen this value before
-        if normalized in self.value_to_token:
-            return self.value_to_token[normalized]
-        
-        # Generate new token
-        prefix = self.TOKEN_PREFIXES.get(entity_type, 'OTHER')
-        
-        if entity_type not in self.type_counters:
-            self.type_counters[entity_type] = 0
-        
-        self.type_counters[entity_type] += 1
-        counter = self.type_counters[entity_type]
-        
-        token = f"[{prefix}_{counter}]"
-        
-        # Store mappings
-        self.value_to_token[normalized] = token
+        canon_type = consolidate_type(entity_type)
+        norm = normalize(value)
+
+        # Already tokenized?
+        if norm in self.value_to_token:
+            return self.value_to_token[norm]
+
+        # Type lock: honour previously locked type
+        if norm in self._type_lock:
+            canon_type = self._type_lock[norm]
+        else:
+            self._type_lock[norm] = canon_type
+
+        # Mint new token
+        self.type_counters[canon_type] = self.type_counters.get(canon_type, 0) + 1
+        idx = self.type_counters[canon_type]
+        token = f"[{canon_type}_{idx}]"
+
+        self.value_to_token[norm] = token
         self.token_to_value[token] = TokenMapping(
             token=token,
-            original=value,  # Keep original case
-            entity_type=entity_type,
-            positions=[]
+            original=value,   # preserve original casing for unmask
+            entity_type=canon_type,
+            positions=[],
         )
-        
-        logger.debug(f"Generated token {token} for {entity_type}")
+
+        # Generate synthetic display text if in synthetic mode
+        if self.synthetic_mode:
+            self._synthetic_display[token] = self._generate_synthetic(canon_type, idx)
+
+        logger.debug(f"Generated {token} for {canon_type}")
+        return token
+
+    def _generate_synthetic(self, canon_type: str, idx: int) -> str:
+        """
+        Generate a realistic-looking fake value for a given entity type.
+        Deterministic per session (uses seeded RNG).
+        """
+        pool_map = {
+            "USER": SYNTHETIC_NAMES,
+            "LOCATION": SYNTHETIC_LOCATIONS,
+            "ORG": SYNTHETIC_ORGS,
+            "COLLEGE": SYNTHETIC_COLLEGES,
+        }
+
+        pool = pool_map.get(canon_type)
+        if pool:
+            return pool[(idx - 1) % len(pool)]
+
+        if canon_type == "EMAIL":
+            name = SYNTHETIC_NAMES[(idx - 1) % len(SYNTHETIC_NAMES)].lower()
+            domain = SYNTHETIC_EMAILS_DOMAINS[(idx - 1) % len(SYNTHETIC_EMAILS_DOMAINS)]
+            return f"{name}@{domain}"
+
+        if canon_type == "PHONE":
+            return SYNTHETIC_PHONES[(idx - 1) % len(SYNTHETIC_PHONES)]
+
+        if canon_type == "HEALTH":
+            return "[medical condition]"
+
+        if canon_type == "SECRET":
+            return "[REDACTED]"
+
+        # ID and other types stay as bracket tokens
+        return f"[{canon_type}_{idx}]"
+
+    def get_display_token(self, token: str) -> str:
+        """
+        Return the display string for a token.
+        In synthetic mode, returns the fake value; otherwise the bracket token.
+        """
+        if self.synthetic_mode and token in self._synthetic_display:
+            return self._synthetic_display[token]
         return token
     
-    def mask_text(self, text: str, entities: List[ScoredEntity]) -> Tuple[str, Dict[str, TokenMapping]]:
+    def mask_text(
+        self, text: str, entities: List[ScoredEntity]
+    ) -> Tuple[str, Dict[str, TokenMapping]]:
         """
-        Replace all entities in text with tokens
-        
-        Args:
-            text: Original text
-            entities: List of detected entities (sorted by position)
-            
-        Returns:
-            Tuple of (masked_text, token_mappings)
+        Replace detected entities in *text* with tokens (or synthetic data).
+
+        Overlap rules:
+          • Prefer longest span.
+          • On tie, prefer higher confidence.
+          • On tie, prefer earlier start position.
         """
         if not entities:
             return text, {}
-        
-        # Sort entities by start position (descending) for replacement
-        sorted_entities = sorted(entities, key=lambda e: e.start, reverse=True)
-        
-        masked_text = text
-        used_mappings: Dict[str, TokenMapping] = {}
-        
-        for entity in sorted_entities:
-            token = self.generate_token(entity.entity_type, entity.text)
-            
-            # Replace in text
-            masked_text = masked_text[:entity.start] + token + masked_text[entity.end:]
-            
-            # Track position
+
+        # Deduplicate & prefer longest
+        entities = self._resolve_overlaps(entities)
+
+        # Sort descending by start for safe in-place replacement
+        entities.sort(key=lambda e: e.start, reverse=True)
+
+        masked = text
+        used: Dict[str, TokenMapping] = {}
+
+        for ent in entities:
+            token = self.generate_token(ent.entity_type, ent.text)
+            # Use synthetic display text if available, otherwise bracket token
+            display = self.get_display_token(token)
+            masked = masked[: ent.start] + display + masked[ent.end :]
             if token in self.token_to_value:
-                self.token_to_value[token].positions.append((entity.start, entity.end))
-                used_mappings[token] = self.token_to_value[token]
-        
-        logger.info(f"Masked {len(entities)} entities in text")
-        return masked_text, used_mappings
+                self.token_to_value[token].positions.append((ent.start, ent.end))
+                used[token] = self.token_to_value[token]
+
+        logger.info(f"Masked {len(entities)} entities (synthetic={self.synthetic_mode})")
+        return masked, used
+
+    @staticmethod
+    def _resolve_overlaps(entities: List[ScoredEntity]) -> List[ScoredEntity]:
+        """
+        Remove overlapping entities, keeping longest span (then highest confidence).
+        """
+        # Sort by: longest span desc, confidence desc, earliest start
+        entities = sorted(
+            entities,
+            key=lambda e: (-(e.end - e.start), -e.confidence, e.start),
+        )
+        kept: List[ScoredEntity] = []
+        occupied: List[Tuple[int, int]] = []
+
+        for ent in entities:
+            if any(ent.start < oend and ent.end > ostart for ostart, oend in occupied):
+                continue  # overlaps with a longer/better entity
+            kept.append(ent)
+            occupied.append((ent.start, ent.end))
+
+        return kept
     
     def unmask_text(self, masked_text: str) -> str:
         """
-        Replace all tokens in text with original values
+        Replace all tokens (bracket or synthetic) in text with original values.
+        
+        In BRACKET mode: replaces [USER_1] → original value.
+        In SYNTHETIC mode: replaces e.g. 'Alex' -> original value.
         
         Args:
-            masked_text: Text with tokens
+            masked_text: Text with tokens or synthetic data
             
         Returns:
             Original text with values restored
         """
         unmasked = masked_text
-        
-        # Sort tokens by length (longest first) to avoid partial replacements
-        sorted_tokens = sorted(self.token_to_value.keys(), key=len, reverse=True)
-        
-        for token in sorted_tokens:
-            if token in unmasked:
-                mapping = self.token_to_value[token]
-                unmasked = unmasked.replace(token, mapping.original)
+
+        if self.synthetic_mode:
+            # Build synthetic → original mapping, sorted longest-first
+            synthetic_to_original: List[Tuple[str, str]] = []
+            for token, mapping in self.token_to_value.items():
+                display = self._synthetic_display.get(token, token)
+                synthetic_to_original.append((display, mapping.original))
+            # Sort by display length descending to avoid partial replacements
+            synthetic_to_original.sort(key=lambda x: len(x[0]), reverse=True)
+            for display, original in synthetic_to_original:
+                if display in unmasked:
+                    unmasked = unmasked.replace(display, original)
+        else:
+            # Standard bracket token replacement
+            sorted_tokens = sorted(self.token_to_value.keys(), key=len, reverse=True)
+            for token in sorted_tokens:
+                if token in unmasked:
+                    mapping = self.token_to_value[token]
+                    unmasked = unmasked.replace(token, mapping.original)
         
         return unmasked
     
     def get_token_for_value(self, value: str) -> Optional[str]:
-        """
-        Get the token for a specific value if it exists
-        
-        Args:
-            value: Original value
-            
-        Returns:
-            Token if found, None otherwise
-        """
-        normalized = value.strip().lower()
-        return self.value_to_token.get(normalized)
+        """Get the token for a specific value if it exists."""
+        return self.value_to_token.get(normalize(value))
     
     def get_value_for_token(self, token: str) -> Optional[str]:
         """
@@ -236,39 +373,34 @@ class Tokenizer:
         """
         return [
             token for token, mapping in self.token_to_value.items()
-            if mapping.entity_type == entity_type
+            if mapping.entity_type == consolidate_type(entity_type)
         ]
     
     def load_mappings(self, mappings: Dict[str, Dict]):
         """
-        Load existing mappings (e.g., from Redis vault)
-        
-        Args:
-            mappings: Dict of token -> {original, entity_type}
+        Load existing mappings (e.g., from Redis vault or profile).
+        Consolidates types and sets type locks.
         """
         for token, data in mappings.items():
+            original = data.get('original', '')
+            raw_type = data.get('entity_type', 'ID')
+            canon = consolidate_type(raw_type)
+            norm = normalize(original)
+
             self.token_to_value[token] = TokenMapping(
                 token=token,
-                original=data['original'],
-                entity_type=data['entity_type'],
+                original=original,
+                entity_type=canon,
                 positions=data.get('positions', [])
             )
-            
-            # Also update reverse mapping
-            normalized = data['original'].strip().lower()
-            self.value_to_token[normalized] = token
-            
-            # Update counter
-            entity_type = data['entity_type']
-            if entity_type not in self.type_counters:
-                self.type_counters[entity_type] = 0
-            
-            # Extract counter from token
+            self.value_to_token[norm] = token
+            self._type_lock[norm] = canon
+
+            # Keep counter in sync
             try:
-                counter = int(token.split('_')[-1].rstrip(']'))
-                self.type_counters[entity_type] = max(
-                    self.type_counters[entity_type],
-                    counter
+                idx = int(token.split('_')[-1].rstrip(']'))
+                self.type_counters[canon] = max(
+                    self.type_counters.get(canon, 0), idx
                 )
             except (ValueError, IndexError):
                 pass
@@ -295,9 +427,6 @@ class Tokenizer:
         """
         Get a summary of masked data for UI display
         (Shows token names but NOT the actual values for security)
-        
-        Returns:
-            Summary dict with tokens and their types
         """
         return {
             'token_count': len(self.token_to_value),
@@ -310,3 +439,10 @@ class Tokenizer:
                 for token, mapping in self.token_to_value.items()
             ]
         }
+
+    def get_known_values(self) -> Dict[str, str]:
+        """
+        Return {normalized_value: canonical_type} for all known entities.
+        Used to feed the fuzzy engine with profile + session entities.
+        """
+        return dict(self._type_lock)

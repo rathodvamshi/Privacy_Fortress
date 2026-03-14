@@ -19,35 +19,45 @@ router = APIRouter(tags=["health"])
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
     """
-    Comprehensive health check for all services
+    Comprehensive health check for all services (Pro-Level)
+    Includes performance metrics for Two-Locker system
     """
+    # ── 1. Redis Ephemeral Vault (Locker 1) ──
     try:
-        # Check Redis
         vault = get_redis_vault()
         redis_health = vault.health_check()
+        # Add pro metrics if available
+        if hasattr(vault, 'get_metrics'):
+            redis_health['metrics'] = vault.get_metrics()
     except Exception as e:
         redis_health = {"status": "error", "error": str(e)}
     
+    # ── 2. MongoDB PersistentVault (Locker 2) ──
     try:
-        # Check MongoDB
         db = await get_mongodb()
         mongodb_health = await db.health_check()
+        # Profile vault metrics
+        from ..vault.profile_vault import get_profile_vault
+        profile_vault = get_profile_vault()
+        if hasattr(profile_vault, 'get_metrics'):
+             mongodb_health['vault_metrics'] = profile_vault.get_metrics()
     except Exception as e:
         mongodb_health = {"status": "error", "error": str(e)}
     
+    # ── 3. Groq LLM Connection ──
     try:
-        # Check Groq
         groq = get_groq_client()
         groq_health = await groq.health_check()
     except Exception as e:
         groq_health = {"status": "error", "error": str(e)}
     
-    # Overall status
-    all_healthy = all([
-        redis_health.get("status") == "healthy",
-        mongodb_health.get("status") == "healthy",
-        groq_health.get("status") == "healthy"
-    ])
+    # Overall status logic
+    # Healthy if core services are responding
+    redis_ok = redis_health.get("status") == "healthy"
+    mongo_ok = mongodb_health.get("status") == "healthy"
+    groq_ok = groq_health.get("status") == "healthy"
+    
+    all_healthy = redis_ok and mongo_ok and groq_ok
     
     return HealthResponse(
         status="healthy" if all_healthy else "degraded",

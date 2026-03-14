@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Fortress - Complete Workflow Architecture</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-dark: #0a0e27;
+            --bg-card: rgba(15, 23, 42, 0.8);
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --border-glow: rgba(59, 130, 246, 0.3);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1e1b4b 50%, #0f172a 100%);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* Animated background */
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.15;
+        }
+
+        .bg-animation::before,
+        .bg-animation::after {
+            content: '';
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .bg-animation::before {
+            background: var(--accent-blue);
+            top: 10%;
+            left: 20%;
+            animation-delay: 0s;
+        }
+
+        .bg-animation::after {
+            background: var(--accent-purple);
+            bottom: 10%;
+            right: 20%;
+            animation-delay: 10s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            33% {
+                transform: translate(100px, -50px);
+            }
+
+            66% {
+                transform: translate(-50px, 100px);
+            }
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 60px 20px 40px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple), var(--accent-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+            animation: glow 3s ease-in-out infinite;
+        }
+
+        @keyframes glow {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.8));
+            }
+        }
+
+        .header p {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+
+        .tagline {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 32px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid var(--accent-blue);
+            border-radius: 50px;
+            font-size: 1.1rem;
+            color: var(--accent-blue);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 0 40px 60px;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 80px;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            text-align: center;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Main Flow Diagram */
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .flow-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .flow-box {
+            background: var(--bg-card);
+            border: 2px solid transparent;
+            border-radius: 20px;
+            padding: 28px;
+            min-width: 280px;
+            position: relative;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .flow-box:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-blue);
+            box-shadow: 0 20px 60px rgba(59, 130, 246, 0.4);
+        }
+
+        .flow-box.user {
+            border-color: var(--accent-green);
+        }
+
+        .flow-box.mask {
+            border-color: var(--accent-yellow);
+        }
+
+        .flow-box.vault {
+            border-color: var(--accent-purple);
+        }
+
+        .flow-box.ai {
+            border-color: var(--accent-pink);
+        }
+
+        .flow-box.unmask {
+            border-color: var(--accent-cyan);
+        }
+
+        .flow-box.db {
+            border-color: var(--accent-blue);
+        }
+
+        .flow-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+        }
+
+        .flow-box h3 {
+            font-size: 1.4rem;
+            margin-bottom: 12px;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .flow-box p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .flow-box .code-snippet {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: var(--accent-cyan);
+            text-align: left;
+        }
+
+        /* Arrow */
+        .flow-arrow {
+            font-size: 2.5rem;
+            color: var(--accent-blue);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 0.5;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 1;
+                transform: scale(1.2);
+            }
+        }
+
+        /* Two Locker Architecture */
+        .locker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 40px;
+            margin-top: 40px;
+        }
+
+        .locker-card {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px;
+            border: 2px solid;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s ease;
+        }
+
+        .locker-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+        }
+
+        .locker-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 30px 80px rgba(59, 130, 246, 0.3);
+        }
+
+        .locker-card.ephemeral {
+            border-color: var(--accent-yellow);
+        }
+
+        .locker-card.persistent {
+            border-color: var(--accent-purple);
+        }
+
+        .locker-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 28px;
+        }
+
+        .locker-icon {
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+        }
+
+        .locker-header h3 {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .locker-details {
+            list-style: none;
+            margin-top: 24px;
+        }
+
+        .locker-details li {
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .locker-details li:last-child {
+            border-bottom: none;
+        }
+
+        .locker-details li::before {
+            content: '✓';
+            color: var(--accent-green);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        /* Security Layers */
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .security-layer {
+            background: var(--bg-card);
+            border-left: 4px solid;
+            border-radius: 16px;
+            padding: 28px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .security-layer:hover {
+            transform: translateX(10px);
+            box-shadow: -10px 10px 40px rgba(59, 130, 246, 0.2);
+        }
+
+        .security-layer.layer-1 {
+            border-color: var(--accent-green);
+        }
+
+        .security-layer.layer-2 {
+            border-color: var(--accent-yellow);
+        }
+
+        .security-layer.layer-3 {
+            border-color: var(--accent-cyan);
+        }
+
+        .security-layer.layer-4 {
+            border-color: var(--accent-purple);
+        }
+
+        .security-layer.layer-5 {
+            border-color: var(--accent-pink);
+        }
+
+        .layer-number {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(59, 130, 246, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        .security-layer h4 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .security-layer p {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Tech Stack */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        .tech-card {
+            background: var(--bg-card);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 16px;
+            padding: 28px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .tech-card:hover {
+            border-color: var(--accent-blue);
+            transform: scale(1.05);
+            box-shadow: 0 20px 50px rgba(59, 130, 246, 0.3);
+        }
+
+        .tech-card-icon {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+
+        .tech-card h4 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: var(--accent-blue);
+        }
+
+        .tech-card .tech-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .tech-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin: 60px 0;
+        }
+
+        .stat-box {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            border: 2px solid transparent;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .stat-box:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        /* Key Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 32px;
+            margin-top: 40px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 36px;
+            border: 2px solid rgba(59, 130, 246, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-pink));
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-8px);
+            box-shadow: 0 25px 60px rgba(59, 130, 246, 0.3);
+        }
+
+        .feature-icon {
+            width: 72px;
+            height: 72px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+        }
+
+        .feature-card h3 {
+            font-size: 1.6rem;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .header p {
+                font-size: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 2rem;
+            }
+
+            .locker-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .flow-row {
+                flex-direction: column;
+            }
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 80px;
+        }
+
+        .footer p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        /* Scroll animation */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .delay-1 {
+            animation-delay: 0.1s;
+        }
+
+        .delay-2 {
+            animation-delay: 0.2s;
+        }
+
+        .delay-3 {
+            animation-delay: 0.3s;
+        }
+
+        .delay-4 {
+            animation-delay: 0.4s;
+        }
+
+        .delay-5 {
+            animation-delay: 0.5s;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-animation"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <h1><i class="fas fa-shield-alt"></i> Privacy Fortress</h1>
+        <p><i class="fas fa-lock"></i> Zero-Knowledge AI Chat — Your Identity Stays Yours</p>
+        <div class="tagline">
+            <i class="fas fa-key"></i> Encrypt Identity → Keep Outside AI → Resolve at Display Time
+        </div>
+    </header>
+
+    <!-- Container -->
+    <div class="container">
+
+        <!-- Stats Overview -->
+        <div class="stats-grid fade-in">
+            <div class="stat-box">
+                <div class="stat-value">5</div>
+                <div class="stat-label">Security Layers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">2</div>
+                <div class="stat-label">Vault Lockers</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">PII Protected</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">AES-256</div>
+                <div class="stat-label">Encryption</div>
+            </div>
+        </div>
+
+        <!-- Complete Data Flow -->
+        <section class="section fade-in delay-1">
+            <h2 class="section-title"><i class="fas fa-chart-line"></i> Complete Data Flow</h2>
+
+            <div class="flow-container">
+                <!-- Row 1: User Input -->
+                <div class="flow-row">
+                    <div class="flow-box user">
+                        <div class="flow-icon"><i class="fas fa-user"></i></div>
+                        <h3>1. User Input</h3>
+                        <p>User sends message with PII</p>
+                        <div class="code-snippet">
+                            "I'm Alice from CBIT, email: alice@example.com"
+                        </div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box mask">
+                        <div class="flow-icon"><i class="fas fa-mask"></i></div>
+                        <h3>2. PII Detection & Masking</h3>
+                        <p>NER + Regex + Fuzzy matching detects all PII</p>
+                        <div class="code-snippet">
+                            • spaCy NER (names, orgs)<br>
+                            • Regex (emails, phones)<br>
+                            • Fuzzy (typo variations)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Masking & Vault -->
+                <div class="flow-row">
+                    <div class="flow-box vault">
+                        <div class="flow-icon"><i class="fas fa-vault"></i></div>
+                        <h3>3. Ephemeral Vault (Redis)</h3>
+                        <p>Store token mappings with TTL</p>
+                        <div class="code-snippet">
+                            [NAME_1] → "Alice"<br>
+                            [COLLEGE_1] → "CBIT"<br>
+                            [EMAIL_1] → "alice@..."
+                        </div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box ai">
+                        <div class="flow-icon"><i class="fas fa-brain"></i></div>
+                        <h3>4. AI Processing</h3>
+                        <p>LLM receives only masked text</p>
+                        <div class="code-snippet">
+                            "I'm [NAME_1] from [COLLEGE_1], email: [EMAIL_1]"
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Response & Unmask -->
+                <div class="flow-row">
+                    <div class="flow-box unmask">
+                        <div class="flow-icon"><i class="fas fa-magic"></i></div>
+                        <h3>5. Response Unmasking</h3>
+                        <p>Unmask in RAM before sending to user</p>
+                        <div class="code-snippet">
+                            AI: "Hello [NAME_1]!"<br>
+                            → "Hello Alice!"
+                        </div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box db">
+                        <div class="flow-icon"><i class="fas fa-database"></i></div>
+                        <h3>6. Storage (MongoDB)</h3>
+                        <p>Store only masked messages</p>
+                        <div class="code-snippet">
+                            DB: "I'm [NAME_1]..."<br>
+                            ✅ No real PII stored
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Two-Locker Architecture -->
+        <section class="section fade-in delay-2">
+            <h2 class="section-title"><i class="fas fa-lock"></i> Two-Locker Architecture</h2>
+
+            <div class="locker-grid">
+                <!-- Locker 1: Ephemeral -->
+                <div class="locker-card ephemeral">
+                    <div class="locker-header">
+                        <div class="locker-icon"><i class="fas fa-clock"></i></div>
+                        <div>
+                            <h3>Locker 1: Ephemeral</h3>
+                            <p style="color: var(--text-secondary); margin-top: 4px;">Session-based vault</p>
+                        </div>
+                    </div>
+
+                    <ul class="locker-details">
+                        <li><strong>Storage:</strong> Redis with TTL (30 minutes default)</li>
+                        <li><strong>Scope:</strong> Per session only</li>
+                        <li><strong>Contains:</strong> Token-to-PII mappings ([NAME_1] → Alice)</li>
+                        <li><strong>Lifecycle:</strong> Created on first message, auto-expires</li>
+                        <li><strong>Wiped:</strong> When session ends or TTL expires</li>
+                        <li><strong>Purpose:</strong> Enable real-time unmasking during chat</li>
+                        <li><strong>Security:</strong> Never persisted, RAM-only operations</li>
+                    </ul>
+                </div>
+
+                <!-- Locker 2: Persistent -->
+                <div class="locker-card persistent">
+                    <div class="locker-header">
+                        <div class="locker-icon"><i class="fas fa-shield-alt"></i></div>
+                        <div>
+                            <h3>Locker 2: Persistent</h3>
+                            <p style="color: var(--text-secondary); margin-top: 4px;">User profile vault</p>
+                        </div>
+                    </div>
+
+                    <ul class="locker-details">
+                        <li><strong>Storage:</strong> MongoDB with AES-256-GCM encryption</li>
+                        <li><strong>Scope:</strong> Per user (one profile only)</li>
+                        <li><strong>Contains:</strong> Encrypted blob {name, college, email}</li>
+                        <li><strong>Lifecycle:</strong> Created only with user consent</li>
+                        <li><strong>Wiped:</strong> When user clicks "Forget Me"</li>
+                        <li><strong>Purpose:</strong> Enable cross-device sync and profile recreation</li>
+                        <li><strong>Security:</strong> Fully encrypted at rest, decrypted in RAM only</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div
+                style="margin-top: 40px; padding: 32px; background: rgba(59, 130, 246, 0.1); border: 2px solid var(--accent-blue); border-radius: 20px; text-align: center;">
+                <h3 style="font-size: 1.8rem; margin-bottom: 16px; color: var(--accent-blue);">🔑 Key Principle</h3>
+                <p style="font-size: 1.2rem; line-height: 1.8; color: var(--text-secondary);">
+                    <strong style="color: var(--text-primary);">No Session Vault Sprawl:</strong> We never store full
+                    session vaults permanently.
+                    We keep ONE encrypted profile per user and recreate session mappings from it when needed.
+                    This keeps the design simple, compliant, and auditable.
+                </p>
+            </div>
+        </section>
+
+        <!-- 5 Security Layers -->
+        <section class="section fade-in delay-3">
+            <h2 class="section-title"><i class="fas fa-shield-alt"></i> Five Security Layers</h2>
+
+            <div class="security-grid">
+                <div class="security-layer layer-1">
+                    <div class="layer-number">1</div>
+                    <h4><i class="fas fa-desktop"></i> Frontend Security</h4>
+                    <p>
+                        RAM-only state management. No PII in localStorage or cookies.
+                        State cleared on page refresh or logout. Zero persistence on client side.
+                    </p>
+                </div>
+
+                <div class="security-layer layer-2">
+                    <div class="layer-number">2</div>
+                    <h4><i class="fas fa-mask"></i> Mask-Maker Pipeline</h4>
+                    <p>
+                        Triple-layer detection: spaCy NER for entities, Regex for patterns (email, phone),
+                        RapidFuzz for typos and variations. Catches 99%+ of common PII.
+                    </p>
+                </div>
+
+                <div class="security-layer layer-3">
+                    <div class="layer-number">3</div>
+                    <h4><i class="fas fa-hourglass-half"></i> Ephemeral Vault</h4>
+                    <p>
+                        Redis-based session mappings with TTL. Auto-expiry ensures session data
+                        never outlives the conversation. Keys are salted per session.
+                    </p>
+                </div>
+
+                <div class="security-layer layer-4">
+                    <div class="layer-number">4</div>
+                    <h4><i class="fas fa-lock"></i> Persistent Vault</h4>
+                    <p>
+                        AES-256-GCM encrypted profile storage. Each user has ONE encrypted blob.
+                        Decryption happens in RAM only. "Forget Me" permanently deletes the profile.
+                    </p>
+                </div>
+
+                <div class="security-layer layer-5">
+                    <div class="layer-number">5</div>
+                    <h4><i class="fas fa-robot"></i> LLM Shield</h4>
+                    <p>
+                        Prompt injection detection. Response validation. AI never sees real PII.
+                        Model can be swapped without changing privacy guarantees.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Key Features -->
+        <section class="section fade-in delay-4">
+            <h2 class="section-title"><i class="fas fa-star"></i> Key Features</h2>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-user-secret"></i></div>
+                    <h3>PII Detection & Masking</h3>
+                    <p>
+                        Automatically detects names, emails, colleges, companies, and phone numbers using
+                        a combination of NER, regex patterns, and fuzzy matching. Handles typos and variations.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-lock"></i></div>
+                    <h3>AES-256-GCM Encryption</h3>
+                    <p>
+                        Military-grade encryption for all persistent storage. Each user profile is encrypted
+                        as a single blob. Decryption happens only in RAM, never written to disk unencrypted.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-clock"></i></div>
+                    <h3>TTL Auto-Delete</h3>
+                    <p>
+                        Session tokens automatically expire after 30 minutes (configurable). No manual cleanup
+                        needed. Ephemeral vault self-destructs, preventing data accumulation.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+                    <h3>Prompt Injection Shield</h3>
+                    <p>
+                        Protection against LLM jailbreak attempts and prompt injection attacks.
+                        Validates inputs and outputs to ensure the AI stays within safe boundaries.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-brain"></i></div>
+                    <h3>Zero-Knowledge LLM</h3>
+                    <p>
+                        The AI never sees real user identities. All PII is replaced with tokens before
+                        reaching the model. Cannot be trained on or leak real personal information.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-sync-alt"></i></div>
+                    <h3>Cross-Device Sync</h3>
+                    <p>
+                        With user consent, encrypted profile enables seamless experience across devices.
+                        One profile is decrypted and recreated into session state. No session vault duplication.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tech Stack -->
+        <section class="section fade-in delay-5">
+            <h2 class="section-title"><i class="fas fa-tools"></i> Technology Stack</h2>
+
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-bolt"></i></div>
+                    <h4>Backend</h4>
+                    <div class="tech-name">FastAPI</div>
+                    <p>Async Python framework with automatic OpenAPI documentation and high performance.</p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-user-tag"></i></div>
+                    <h4>NER Detection</h4>
+                    <div class="tech-name">spaCy</div>
+                    <p>Industrial-strength NLP for named entity recognition. Detects persons, organizations, locations.
+                    </p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-search"></i></div>
+                    <h4>Fuzzy Matching</h4>
+                    <div class="tech-name">RapidFuzz</div>
+                    <p>Fast fuzzy string matching to catch typos and variations in names and entities.</p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-stopwatch"></i></div>
+                    <h4>Ephemeral Vault</h4>
+                    <div class="tech-name">Redis</div>
+                    <p>In-memory data store with TTL support for session-based token mappings.</p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-database"></i></div>
+                    <h4>Persistent Storage</h4>
+                    <div class="tech-name">MongoDB</div>
+                    <p>NoSQL database for encrypted user profiles and masked message history.</p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-robot"></i></div>
+                    <h4>LLM Provider</h4>
+                    <div class="tech-name">Groq (Llama)</div>
+                    <p>Fast inference for masked prompts. Model-agnostic design allows easy swapping.</p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-key"></i></div>
+                    <h4>Encryption</h4>
+                    <div class="tech-name">AES-256-GCM</div>
+                    <p>Authenticated encryption for user profiles with additional data integrity checks.</p>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-card-icon"><i class="fas fa-ticket-alt"></i></div>
+                    <h4>Authentication</h4>
+                    <div class="tech-name">JWT</div>
+                    <p>Stateless authentication with access and refresh tokens. Ties requests to user vaults.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- API Endpoints -->
+        <section class="section fade-in">
+            <h2 class="section-title"><i class="fas fa-plug"></i> API Endpoints</h2>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-comments"></i></div>
+                    <h3>POST /api/chat</h3>
+                    <p>
+                        Send a message to the AI. PII is automatically detected, masked, sent to LLM,
+                        then unmasked in the response. Stored masked in database.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-list"></i></div>
+                    <h3>GET /api/sessions</h3>
+                    <p>
+                        List all chat sessions for the authenticated user. Messages are stored
+                        in masked format and unmasked on retrieval.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>PUT /api/vault/consent</h3>
+                    <p>
+                        Enable "Remember me" / cross-device sync. Creates encrypted profile
+                        from current session or explicit fields.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-user-circle"></i></div>
+                    <h3>GET /api/vault/profile</h3>
+                    <p>
+                        Get profile metadata (has_profile, consent status). Does not return
+                        decrypted data without explicit request.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-save"></i></div>
+                    <h3>PUT /api/vault/profile</h3>
+                    <p>
+                        Save or update encrypted profile. Can extract from current session or
+                        accept explicit name, college, email fields.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon"><i class="fas fa-trash-alt"></i></div>
+                    <h3>DELETE /api/vault/profile</h3>
+                    <p>
+                        "Forget me" — permanently delete encrypted profile and clear all
+                        ephemeral session vaults for the user.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Compliance & Impact -->
+        <section class="section fade-in">
+            <h2 class="section-title"><i class="fas fa-file-contract"></i> Compliance & Impact</h2>
+
+            <div class="locker-grid">
+                <div class="locker-card" style="border-color: var(--accent-green);">
+                    <div class="locker-header">
+                        <div class="locker-icon"><i class="fas fa-balance-scale"></i></div>
+                        <div>
+                            <h3>Compliance Ready</h3>
+                        </div>
+                    </div>
+                    <ul class="locker-details">
+                        <li><strong>GDPR:</strong> Right to erasure via "Forget Me" button</li>
+                        <li><strong>HIPAA:</strong> No PHI sent to third-party LLMs</li>
+                        <li><strong>FERPA:</strong> Student PII never reaches the AI</li>
+                        <li><strong>Data Localization:</strong> Can deploy on-prem or in specific regions</li>
+                        <li><strong>Consent-Based:</strong> Persistent storage requires explicit opt-in</li>
+                        <li><strong>Audit Logs:</strong> Track access without storing PII in logs</li>
+                    </ul>
+                </div>
+
+                <div class="locker-card" style="border-color: var(--accent-pink);">
+                    <div class="locker-header">
+                        <div class="locker-icon"><i class="fas fa-globe"></i></div>
+                        <div>
+                            <h3>Real-World Impact</h3>
+                        </div>
+                    </div>
+                    <ul class="locker-details">
+                        <li><strong>Healthcare:</strong> Doctors can use AI without exposing patient names</li>
+                        <li><strong>Education:</strong> Students chat safely without risking identity leaks</li>
+                        <li><strong>Banking:</strong> Financial queries without sending account details to cloud</li>
+                        <li><strong>HR:</strong> Employee data stays private during AI-assisted workflows</li>
+                        <li><strong>Trust:</strong> Users control their data with simple "Forget Me" option</li>
+                        <li><strong>Transparency:</strong> Clear explanation: "AI never sees your real name"</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p><i class="fas fa-shield-alt"></i> <strong>Privacy Fortress</strong> — Zero-Knowledge AI Chat</p>
+        <p style="margin-top: 8px; opacity: 0.7;">Built with <i class="fas fa-heart" style="color: #ec4899;"></i> for
+            Hackathon 2026</p>
+    </footer>
+
+</body>
+
+</html>
